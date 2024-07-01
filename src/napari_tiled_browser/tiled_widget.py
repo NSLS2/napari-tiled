@@ -89,8 +89,10 @@ class TiledBrowser(QWidget):
         self.rows_per_page_selector.setCurrentIndex(0)
 
         self.current_location_label = QLabel()
+        self.first_page = ClickableQLabel("<<")
         self.previous_page = ClickableQLabel("<")
         self.next_page = ClickableQLabel(">")
+        self.last_page = ClickableQLabel(">>")
         self.navigation_widget = QWidget()
 
         self._rows_per_page = int(
@@ -102,13 +104,17 @@ class TiledBrowser(QWidget):
         navigation_layout.addWidget(self.rows_per_page_label)
         navigation_layout.addWidget(self.rows_per_page_selector)
         navigation_layout.addWidget(self.current_location_label)
+        navigation_layout.addWidget(self.first_page)
         navigation_layout.addWidget(self.previous_page)
         navigation_layout.addWidget(self.next_page)
+        navigation_layout.addWidget(self.last_page)
         self.navigation_widget.setLayout(navigation_layout)
 
         # Current path layout
-        self.current_path_label = QLabel()
-        self._rebuild_current_path_label()
+        self.current_path_layout = QHBoxLayout()
+        self.current_path_layout.setSpacing(10)
+        self.current_path_layout.setAlignment(Qt.AlignLeft)
+        self._rebuild_current_path_layout()
 
         # Catalog table elements
         self.catalog_table = QTableWidget(0, 1)
@@ -144,7 +150,7 @@ class TiledBrowser(QWidget):
 
         # Catalog table layout
         catalog_table_layout = QVBoxLayout()
-        catalog_table_layout.addWidget(self.current_path_label)
+        catalog_table_layout.addWidget(self.current_path_layout)
         catalog_table_layout.addLayout(catalog_info_layout)
         catalog_table_layout.addWidget(self.navigation_widget)
         catalog_table_layout.addStretch(1)
@@ -166,6 +172,8 @@ class TiledBrowser(QWidget):
         self.connect_button.clicked.connect(self._on_connect_clicked)
         self.previous_page.clicked.connect(self._on_prev_page_clicked)
         self.next_page.clicked.connect(self._on_next_page_clicked)
+        self.first_page.clicked.connect(self._on_first_page_clicked)
+        self.last_page.clicked.connect(self._on_last_page_clicked)
 
         self.rows_per_page_selector.currentTextChanged.connect(
             self._on_rows_per_page_changed
@@ -279,15 +287,63 @@ class TiledBrowser(QWidget):
         self.info_box.setText("")
         self.load_button.setEnabled(False)
 
-    def _rebuild_current_path_label(self):
-        path = ["root"]
+    def _on_breadcrumb_clicked(self, node):
+        # If root is selected.
+        if node == "root":
+            self.node_path = ()
+            self._rebuild()
+        
+        # For any node other than root.
+        else:
+            try:
+                index = self.node_path.index(node)
+                self.node_path = self.node_path[:index + 1]
+                self._rebuild()
+            
+            # If node ID has been truncated.
+            except ValueError:
+                for i, node_id in enumerate(self.node_path):
+                    if node == node_id[self.NODE_ID_MAXLEN - 3] + "...":
+                        index = i
+                        break
+
+                self.node_path = self.node_path[:index + 1]
+                self._rebuild
+
+    def _clear_current_path_layout(self):
+        for i in reversed(range(self.current_path_layout.count())):
+            widget = self.current_path_layout.itemAt(i).widget()
+            self.current_path_layout.removeWidget(widget)
+            widget.deleteLater()
+
+    def _rebuild_current_path_layout(self):
+        # Add root to widget list.
+        root = ClickableQLabel("root")
+        root.clicked_with_text.connect(self._on_breadcrumb_clicked)
+        widgets = [root]
+
+        # Appropritaely truncate node_id.
         for node_id in self.node_path:
             if len(node_id) > self.NODE_ID_MAXLEN:
                 node_id = node_id[: self.NODE_ID_MAXLEN - 3] + "..."
-            path.append(node_id)
-        path.append("")
 
-        self.current_path_label.setText(" / ".join(path))
+            # Convert node_id into a ClickableQWidget and add to widget list.
+            clickable_label = ClickableQLabel(node_id)
+            clickable_label.clicked_with_text.connect(self._on_breadcrumb_clicked)
+            widgets.append(clickable_label)
+
+        # Add nodes to node path.
+        if len(self.current_path_layout) < len(widgets):
+            for widget in widgets:
+                widget = widgets[-1]
+                self.current_path_layout.addWidget(widget)
+
+        # Remove nodes from node path after they are exited.
+        elif len(self.current_path_layout) > len(widgets):
+            self._clear_current_path_layout()
+            while len(self.current_path_layout) < len(widgets):
+                for widget in widgets:
+                    self.current_path_layout.addWidget(widget)
 
     def _rebuild_table(self):
         prev_block = self.catalog_table.blockSignals(True)
@@ -347,7 +403,7 @@ class TiledBrowser(QWidget):
 
     def _rebuild(self):
         self._rebuild_table()
-        self._rebuild_current_path_label()
+        self._rebuild_current_path_layout()
         self._set_current_location_label()
 
     def _on_prev_page_clicked(self):
@@ -362,6 +418,21 @@ class TiledBrowser(QWidget):
             self._current_page += 1
             self._rebuild()
 
+    def _on_first_page_clicked(self):
+        if self._current_page != 0:
+            self._current_page = 0
+            self._rebuild()
+
+    def _on_last_page_clicked(self):
+        while True:
+            if(
+                self._current_page * self._rows_per_page
+            ) + self._rows_per_page < len(self.get_current_node()):
+                self._current_page += 1
+            else:
+                self._rebuild
+                break
+
     def _set_current_location_label(self):
         starting_index = self._current_page * self._rows_per_page + 1
         ending_index = min(
@@ -374,9 +445,11 @@ class TiledBrowser(QWidget):
 
 class ClickableQLabel(QLabel):
     clicked = Signal()
+    clicked_with_text = Signal(str)
 
     def mousePressEvent(self, event):
         self.clicked.emit()
+        self.clicked_with_text.emit(self.text())
 
 
 # TODO: handle changing the location label/current_page when on last page and
