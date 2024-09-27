@@ -2,9 +2,14 @@ name: napari-tiled
 display_name: Tiled Browser
 contributions:
   commands:
+    # - id: napari-tiled.make_qwidget
+    #   python_name: napari_tiled_browser.tiled_widget:TiledBrowser
+    #   title: Tiled Browser
     - id: napari-tiled.make_qwidget
-      python_name: napari_tiled_browser.tiled_widget:TiledBrowser
-      title: Tiled Browser
+      python_name: napari_tiled_browser.tiled_widget2:TiledBrowser2
+      title: Tiled Browser 2
   widgets:
+    # - command: napari-tiled.make_qwidget
+    #   display_name: Tiled Browser
     - command: napari-tiled.make_qwidget
-      display_name: Tiled Browser
+      display_name: Tiled Browser 2
