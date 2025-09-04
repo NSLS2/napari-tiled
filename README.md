@@ -6,32 +6,44 @@
 [![tests](https://github.com/AbbyGi/napari-tiled/workflows/tests/badge.svg)](https://github.com/AbbyGi/napari-tiled/actions)
 [![codecov](https://codecov.io/gh/AbbyGi/napari-tiled/branch/main/graph/badge.svg)](https://codecov.io/gh/AbbyGi/napari-tiled)
 [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-tiled)](https://napari-hub.org/plugins/napari-tiled)
+[![npe2](https://img.shields.io/badge/plugin-npe2-blue?link=https://napari.org/stable/plugins/index.html)](https://napari.org/stable/plugins/index.html)
+[![Copier](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/copier-org/copier/master/img/badge/badge-grayscale-inverted-border-purple.json)](https://github.com/copier-org/copier)
 
 A Tiled browser plugin for napari
 
 ----------------------------------
 
-This [napari] plugin was generated with [Cookiecutter] using [@napari]'s [cookiecutter-napari-plugin] template.
+This [napari] plugin was generated with [copier] using the [napari-plugin-template].
 
 <!--
 Don't miss the full getting started guide to set up your new package:
-https://github.com/napari/cookiecutter-napari-plugin#getting-started
+https://github.com/napari/napari-plugin-template#getting-started
 
 and review the napari docs for plugin developers:
-https://napari.org/plugins/index.html
+https://napari.org/stable/plugins/index.html
 -->
 
 ## Installation
 
 You can install `napari-tiled` via [pip]:
 
-    pip install napari-tiled
+```
+pip install napari-tiled
+```
 
+If napari is not already installed, you can install `napari-tiled` with napari and Qt via:
+
+```
+pip install "napari-tiled[all]"
+```
 
 
 To install latest development version :
 
-    pip install git+https://github.com/AbbyGi/napari-tiled.git
+```
+pip install git+https://github.com/AbbyGi/napari-tiled.git
+```
+
 
 
 ## Contributing
@@ -49,7 +61,7 @@ Distributed under the terms of the [BSD-3] license,
 If you encounter any problems, please [file an issue] along with a detailed description.
 
 [napari]: https://github.com/napari/napari
-[Cookiecutter]: https://github.com/audreyr/cookiecutter
+[copier]: https://copier.readthedocs.io/en/stable/
 [@napari]: https://github.com/napari
 [MIT]: http://opensource.org/licenses/MIT
 [BSD-3]: http://opensource.org/licenses/BSD-3-Clause
@@ -57,7 +69,7 @@ If you encounter any problems, please [file an issue] along with a detailed desc
 [GNU LGPL v3.0]: http://www.gnu.org/licenses/lgpl-3.0.txt
 [Apache Software License 2.0]: http://www.apache.org/licenses/LICENSE-2.0
 [Mozilla Public License 2.0]: https://www.mozilla.org/media/MPL/2.0/index.txt
-[cookiecutter-napari-plugin]: https://github.com/napari/cookiecutter-napari-plugin
+[napari-plugin-template]: https://github.com/napari/napari-plugin-template
 
 [file an issue]: https://github.com/AbbyGi/napari-tiled/issues
 

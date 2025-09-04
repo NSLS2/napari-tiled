@@ -1,5 +1,9 @@
 name: napari-tiled
 display_name: Tiled Browser
+# use 'hidden' to remove plugin from napari hub search results
+visibility: public
+# see https://napari.org/stable/plugins/technical_references/manifest.html#fields for valid categories
+# categories: []
 contributions:
   commands:
     - id: napari-tiled.make_qwidget

@@ -6,13 +6,14 @@ see: https://napari.org/plugins/guides.html?#widgets
 
 Replace code below according to your needs.
 """
-import collections
-from datetime import date, datetime
-import functools
-import json
 
-from napari.utils.notifications import show_info
+import collections
+import json
+from datetime import date, datetime
+
+from httpx import ConnectError
 from napari.resources._icons import ICONS
+from napari.utils.notifications import show_info
 from qtpy.QtCore import Qt, Signal
 from qtpy.QtGui import QIcon, QPixmap
 from qtpy.QtWidgets import (
@@ -37,7 +38,7 @@ from tiled.structures.core import StructureFamily
 
 
 def json_decode(obj):
-    if isinstance(obj, (datetime, date)):
+    if isinstance(obj, datetime | date):
         return obj.isoformat()
     return str(obj)
 
@@ -93,9 +94,7 @@ class TiledBrowser(QWidget):
         self.next_page = ClickableQLabel(">")
         self.navigation_widget = QWidget()
 
-        self._rows_per_page = int(
-            self.rows_per_page_selector.currentText()
-        )
+        self._rows_per_page = int(self.rows_per_page_selector.currentText())
 
         # Navigation layout
         navigation_layout = QHBoxLayout()
@@ -181,7 +180,7 @@ class TiledBrowser(QWidget):
             root = from_uri(url, STRUCTURE_CLIENTS)
             if isinstance(root, DummyClient):
                 show_info("Unsupported tiled type detected")
-        except Exception:
+        except ConnectError:
             show_info("Could not connect. Please check the url.")
         else:
             self.connection_label.setText(f"Connected to {url}")
@@ -198,7 +197,7 @@ class TiledBrowser(QWidget):
     def get_current_node(self):
         return self.get_node(self.node_path)
 
-    @functools.lru_cache(maxsize=1)
+    # @functools.lru_cache(maxsize=1)
     def get_node(self, node_path):
         if node_path:
             return self.root[node_path]
@@ -265,7 +264,7 @@ class TiledBrowser(QWidget):
 
         info = f"<b>type:</b> {family}<br>"
         if family == StructureFamily.array:
-            shape = attrs["structure"]["macro"]["shape"]
+            shape = attrs["structure"]["shape"]
             info += f"<b>shape:</b> {tuple(shape)}<br>"
         info += f"<b>metadata:</b> {metadata}"
         self.info_box.setText(info)
@@ -302,7 +301,7 @@ class TiledBrowser(QWidget):
             self.catalog_table.setItem(0, 0, self.catalog_breadcrumbs)
 
         # Then add new rows
-        for row in range(self._rows_per_page):
+        for _ in range(self._rows_per_page):
             last_row_position = self.catalog_table.rowCount()
             self.catalog_table.insertRow(last_row_position)
         node_offset = self._rows_per_page * self._current_page
@@ -313,7 +312,7 @@ class TiledBrowser(QWidget):
         # Loop over rows, filling in keys until we run out of keys.
         start = 1 if self.node_path else 0
         for row_index, (key, value) in zip(
-            range(start, self.catalog_table.rowCount()), items
+            range(start, self.catalog_table.rowCount()), items, strict=False
         ):
             family = value.item["attributes"]["structure_family"]
             if family == StructureFamily.container:
@@ -329,7 +328,7 @@ class TiledBrowser(QWidget):
             )
 
         # remove extra rows
-        for row in range(self._rows_per_page - len(items)):
+        for _ in range(self._rows_per_page - len(items)):
             self.catalog_table.removeRow(self.catalog_table.rowCount() - 1)
 
         headers = [
