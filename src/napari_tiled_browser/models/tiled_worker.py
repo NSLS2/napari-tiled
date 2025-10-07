@@ -36,7 +36,7 @@ class TiledWorker(QRunnable):
 
         if self.node_path_parts:
             results = catalog_or_search_results[
-                self.node_path_parts[0]
+                self.node_path_parts
             ].items()[selection]
         else:
             results = catalog_or_search_results.items()[selection]

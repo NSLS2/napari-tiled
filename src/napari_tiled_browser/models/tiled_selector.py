@@ -15,6 +15,16 @@ from tiled.queries import FullText, Key, Regex
 from tiled.structures.core import StructureFamily
 
 _logger = logging.getLogger(__name__)
+_logger.setLevel(logging.DEBUG)
+
+console = logging.StreamHandler()
+console.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+    datefmt='%m-%d %H:%M:%S',
+)
+console.setFormatter(formatter)
+_logger.addHandler(console)
 
 
 def json_decode(obj):
@@ -271,12 +281,16 @@ class TiledSelector:
 
     def get_parent_node(self, node_path_parts: tuple[str]) -> list:
         """Fetch a node from Tiled corresponding to the node path."""
+        print(f"TiledSelector.get_parent_node({node_path_parts})...")
         # NOTE: Passing tiled a tuple returns a list of bluesky runs
         # even if there is only one item in the tuple
         # This may change in the future when the capability to pass a list
         # of uids to tiled is removed
         if node_path_parts:
-            return self.client[node_path_parts[0]]
+            print(f"  {self.client[node_path_parts[0]] = }")
+            print(f"  {self.client[node_path_parts] = }")
+            # return self.client[node_path_parts[0]]
+            return self.client[node_path_parts]
 
         # An empty tuple indicates the root node
         return self.client
@@ -328,11 +342,13 @@ class TiledSelector:
     def open_node(self, child_node_path: str) -> None:
         """Select a child node if its Tiled structure_family is supported."""
         node = self.get_current_node()[child_node_path]
+        _logger.debug(f"New node: {node.uri}")
         family = node.item["attributes"]["structure_family"]
 
         if family == StructureFamily.array:
             _logger.info("Found array, plotting TODO")
         elif family == StructureFamily.container:
+            _logger.debug(f"Entering container: {child_node_path}")
             self.enter_node(child_node_path)
         else:
             print(f"StructureFamily not supported:'{family}")
