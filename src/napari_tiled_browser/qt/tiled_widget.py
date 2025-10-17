@@ -181,6 +181,7 @@ class QTiledBrowser(QWidget):
 
     def _rebuild_current_path_layout(self):
         """Reset the clickable widgets for the current path breadcrumbs."""
+        print("QTiledBrowser._rebuild_current_path_layout()...")
         bc_widget = ClickableIndexedQLabel("root", index=0)
         bc_widget.setObjectName("root")
         # bc_widget.clicked.connect(self._on_breadcrumb_clicked)
@@ -225,6 +226,7 @@ class QTiledBrowser(QWidget):
     def fetch_table_data(self):
         print(f"!!!       {self.model.client = }")
         print(f"!!! {self.model.node_path_parts = }")
+        print(f"!!!  {self.model.search_results = }")
         runnable = TiledWorker(
             rows_per_page=self.model.rows_per_page,
             current_page=self.model._current_page,
@@ -236,6 +238,7 @@ class QTiledBrowser(QWidget):
         self.thread_pool.start(runnable)
 
     def populate_table(self, results):
+        print("QTiledBrowser.populate_table()...")
         original_state = {}
         self.search_widget.setVisible(True)
         self.catalog_table_widget.setVisible(True)
@@ -296,6 +299,7 @@ class QTiledBrowser(QWidget):
         self.catalog_table.setVerticalHeaderLabels(headers)
         self._clear_metadata()
         self.catalog_table.blockSignals(original_state["blockSignals"])
+        self._set_current_location_label()
 
     def connect_model_signals(self):
         """Connect dialog slots to model signals."""
@@ -317,7 +321,7 @@ class QTiledBrowser(QWidget):
             if self.model.client is None:
                 # TODO: handle disconnecting from tiled client later
                 return
-            self._set_current_location_label()
+            # self._set_current_location_label()
             self.fetch_table_data()
             self._rebuild_current_path_layout()
 
@@ -526,6 +530,7 @@ class QTiledBrowser(QWidget):
     #         self._rebuild()
 
     def _set_current_location_label(self):
+        print("QTiledBrowser._set_current_location_label()...")
         starting_index = (
             self.model._current_page * self.model.rows_per_page + 1
         )
