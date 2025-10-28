@@ -20,8 +20,8 @@ _logger.setLevel(logging.DEBUG)
 console = logging.StreamHandler()
 console.setLevel(logging.DEBUG)
 formatter = logging.Formatter(
-    '%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-    datefmt='%m-%d %H:%M:%S',
+    "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
+    datefmt="%m-%d %H:%M:%S",
 )
 console.setFormatter(formatter)
 _logger.addHandler(console)
@@ -330,25 +330,25 @@ class TiledSelector:
         self._current_page = 0
         self.table_changed.emit(self.node_path_parts)
 
-    # def jump_to_node(self, index) -> None:
-    #     """Select parent Tiled node.
+    def jump_to_node(self, index) -> None:
+        """Select parent Tiled node.
 
-    #         Emits the 'table_changed' signal."""
-    #     _logger.info(f"Jumping to node at index {index}...")
-    #     self.node_path_parts = self.node_path_parts[:index]
-    #     self._current_page = 0
-    #     self.table_changed.emit(self.node_path_parts)
+        Emits the 'table_changed' signal."""
+        _logger.info("Jumping to node at index %d...", index)
+        self.node_path_parts = self.node_path_parts[:index]
+        self._current_page = 0
+        self.table_changed.emit(self.node_path_parts)
 
     def open_node(self, child_node_path: str) -> None:
         """Select a child node if its Tiled structure_family is supported."""
         node = self.get_current_node()[child_node_path]
-        _logger.debug(f"New node: {node.uri}")
+        _logger.debug("New node: %s", node.uri)
         family = node.item["attributes"]["structure_family"]
 
         if family == StructureFamily.array:
             _logger.info("Found array, plotting TODO")
         elif family == StructureFamily.container:
-            _logger.debug(f"Entering container: {child_node_path}")
+            _logger.debug("Entering container: %s", child_node_path)
             self.enter_node(child_node_path)
         else:
             print(f"StructureFamily not supported:'{family}")

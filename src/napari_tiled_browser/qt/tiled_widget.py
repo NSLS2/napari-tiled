@@ -184,7 +184,7 @@ class QTiledBrowser(QWidget):
         print("QTiledBrowser._rebuild_current_path_layout()...")
         bc_widget = ClickableIndexedQLabel("root", index=0)
         bc_widget.setObjectName("root")
-        # bc_widget.clicked.connect(self._on_breadcrumb_clicked)
+        bc_widget.clicked.connect(self._on_breadcrumb_clicked)
         breadcrumbs = [bc_widget]
 
         for i, node_id in enumerate(self.model.node_path_parts, start=1):
@@ -195,7 +195,7 @@ class QTiledBrowser(QWidget):
                 bc_widget = ClickableIndexedQLabel(node_id, index=i)
 
             bc_widget.setObjectName(node_id)
-            # bc_widget.clicked.connect(self._on_breadcrumb_clicked)
+            bc_widget.clicked.connect(self._on_breadcrumb_clicked)
             breadcrumbs.append(bc_widget)
 
         # remove all widgets from current_path_layout
@@ -417,6 +417,9 @@ class QTiledBrowser(QWidget):
             self.model.exit_node()
             return
         self.model.open_node(item.text())
+
+    def _on_breadcrumb_clicked(self, node_index):
+        self.model.jump_to_node(node_index)
 
     # def _on_rows_per_page_changed(self, value):
     #     self._rows_per_page = int(value)
