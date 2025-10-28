@@ -8,6 +8,7 @@ Replace code below according to your needs.
 """
 
 import collections
+import logging
 from datetime import date, datetime
 
 from napari.resources._icons import ICONS
@@ -35,6 +36,18 @@ from tiled.structures.core import StructureFamily
 from napari_tiled_browser.models.tiled_selector import TiledSelector
 from napari_tiled_browser.models.tiled_worker import TiledWorker
 from napari_tiled_browser.qt.tiled_search import QTiledSearchWidget
+
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.DEBUG)
+
+console = logging.StreamHandler()
+console.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
+    datefmt="%m-%d %H:%M:%S",
+)
+console.setFormatter(formatter)
+_logger.addHandler(console)
 
 
 def json_decode(obj):
@@ -172,7 +185,7 @@ class QTiledBrowser(QWidget):
 
     def reset_url_entry(self) -> None:
         """Reset the state of the url_entry widget."""
-        print("QTiledBrowser.reset_url_entry()...")
+        _logger.debug("QTiledBrowser.reset_url_entry()...")
 
         if not self.model.url:
             self.url_entry.setPlaceholderText("Enter a url")
@@ -181,7 +194,7 @@ class QTiledBrowser(QWidget):
 
     def _rebuild_current_path_layout(self):
         """Reset the clickable widgets for the current path breadcrumbs."""
-        print("QTiledBrowser._rebuild_current_path_layout()...")
+        _logger.debug("QTiledBrowser._rebuild_current_path_layout()...")
         bc_widget = ClickableIndexedQLabel("root", index=0)
         bc_widget.setObjectName("root")
         bc_widget.clicked.connect(self._on_breadcrumb_clicked)
@@ -214,7 +227,7 @@ class QTiledBrowser(QWidget):
 
     def reset_rows_per_page(self) -> None:
         """Reset the state of the rows_per_page_selector widget."""
-        print("QTiledWidget.reset_rows_per_page()...")
+        _logger.debug("QTiledWidget.reset_rows_per_page()...")
 
         self.rows_per_page_selector.addItems(
             [str(option) for option in self.model._rows_per_page_options]
@@ -224,9 +237,6 @@ class QTiledBrowser(QWidget):
         )
 
     def fetch_table_data(self):
-        print(f"!!!       {self.model.client = }")
-        print(f"!!! {self.model.node_path_parts = }")
-        print(f"!!!  {self.model.search_results = }")
         runnable = TiledWorker(
             rows_per_page=self.model.rows_per_page,
             current_page=self.model._current_page,
@@ -238,7 +248,7 @@ class QTiledBrowser(QWidget):
         self.thread_pool.start(runnable)
 
     def populate_table(self, results):
-        print("QTiledBrowser.populate_table()...")
+        _logger.debug("QTiledBrowser.populate_table()...")
         original_state = {}
         self.search_widget.setVisible(True)
         self.catalog_table_widget.setVisible(True)
@@ -303,7 +313,7 @@ class QTiledBrowser(QWidget):
 
     def connect_model_signals(self):
         """Connect dialog slots to model signals."""
-        print("QTiledBrowser.connect_model_signals()...")
+        _logger.debug("QTiledBrowser.connect_model_signals()...")
 
         @self.model.client_connected.connect
         def on_client_connected(url: str, api_url: str):
@@ -317,7 +327,7 @@ class QTiledBrowser(QWidget):
 
         @self.model.table_changed.connect
         def on_table_changed(node_path_parts: tuple[str]):
-            print(f"on_table_changed(): {node_path_parts = }")
+            _logger.debug("on_table_changed(): %s", node_path_parts)
             if self.model.client is None:
                 # TODO: handle disconnecting from tiled client later
                 return
@@ -329,7 +339,7 @@ class QTiledBrowser(QWidget):
 
     def connect_model_slots(self):
         """Connect model slots to dialog signals."""
-        print("QTiledBrowser.connect_model_slots()...")
+        _logger.debug("QTiledBrowser.connect_model_slots()...")
 
         self.url_entry.textEdited.connect(self.model.on_url_text_edited)
         self.url_entry.editingFinished.connect(
@@ -412,7 +422,6 @@ class QTiledBrowser(QWidget):
         if not selected:
             return
         item = selected[0]
-        print(f"       ******* {item.text() = }")
         if item is self.catalog_breadcrumbs:
             self.model.exit_node()
             return
@@ -533,7 +542,7 @@ class QTiledBrowser(QWidget):
     #         self._rebuild()
 
     def _set_current_location_label(self):
-        print("QTiledBrowser._set_current_location_label()...")
+        _logger.debug("QTiledBrowser._set_current_location_label()...")
         starting_index = (
             self.model._current_page * self.model.rows_per_page + 1
         )

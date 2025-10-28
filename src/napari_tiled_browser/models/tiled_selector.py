@@ -220,8 +220,6 @@ class TiledSelector:
         # node_offset = self.rows_per_page * self._current_page
         node = self.get_parent_node(node_path_parts)
 
-        print(len(node))
-
         # if self.is_catalog_of_bluesky_runs(node):
         #     self.load_button_enabled = True
         # else:
@@ -281,15 +279,12 @@ class TiledSelector:
 
     def get_parent_node(self, node_path_parts: tuple[str]) -> list:
         """Fetch a node from Tiled corresponding to the node path."""
-        print(f"TiledSelector.get_parent_node({node_path_parts})...")
+        _logger.debug("TiledSelector.get_parent_node(%s)...", node_path_parts)
         # NOTE: Passing tiled a tuple returns a list of bluesky runs
         # even if there is only one item in the tuple
         # This may change in the future when the capability to pass a list
         # of uids to tiled is removed
         if node_path_parts:
-            print(f"  {self.client[node_path_parts[0]] = }")
-            print(f"  {self.client[node_path_parts] = }")
-            # return self.client[node_path_parts[0]]
             return self.client[node_path_parts]
 
         # An empty tuple indicates the root node
@@ -351,7 +346,7 @@ class TiledSelector:
             _logger.debug("Entering container: %s", child_node_path)
             self.enter_node(child_node_path)
         else:
-            print(f"StructureFamily not supported:'{family}")
+            _logger.info("StructureFamily not supported: %s", family)
             # TODO: Emit an error signal for dialog widget to respond to
 
     def search(self, key, value, search_type):
@@ -367,7 +362,7 @@ class TiledSelector:
         elif search_type == "regex":
             results = _client.search(Regex(key, pattern=value))
         else:
-            print(f"Unknown search type {search_type}. Returning...")
+            _logger.info("Unknown search type %s. Returning...", search_type)
             results = None
         self.search_results = results
         self.table_changed.emit(self.node_path_parts)

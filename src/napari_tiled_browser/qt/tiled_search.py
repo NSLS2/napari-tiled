@@ -67,9 +67,9 @@ class QTiledSearchWidget(QWidget):
 
     def _search(self):
         key = self.key_entry.text()
-        print(f"Key: {key}")
+        _logger.debug("Key: %s", key)
         value = self.value_entry.text()
-        print(f"Value: {value}")
+        _logger.debug("Value: %s", value)
         _logger.debug("Searching...")
         full_text_enabled = self.full_text_checkbox.isChecked()
         regex_enabled = self.regex_checkbox.isChecked()
