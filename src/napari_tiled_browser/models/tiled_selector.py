@@ -356,12 +356,16 @@ class TiledSelector:
 
     def search(self, key, value, search_type):
         """Perform Tiled search."""
+        if self.node_path_parts:
+            _client = self.client[self.node_path_parts]
+        else:
+            _client = self.client
         if search_type == "key_value":
-            results = self.client.search(Key(key) == value)
+            results = _client.search(Key(key) == value)
         elif search_type == "full_text":
-            results = self.client.search(FullText(value))
+            results = _client.search(FullText(value))
         elif search_type == "regex":
-            results = self.client.search(Regex(key, pattern=value))
+            results = _client.search(Regex(key, pattern=value))
         else:
             print(f"Unknown search type {search_type}. Returning...")
             results = None
