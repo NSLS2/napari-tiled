@@ -7,7 +7,7 @@ visibility: public
 contributions:
   commands:
     - id: napari-tiled.make_qwidget
-      python_name: napari_tiled_browser.tiled_widget:TiledBrowser
+      python_name: napari_tiled_browser.qt.tiled_widget:QTiledBrowser
       title: Tiled Browser
   widgets:
     - command: napari-tiled.make_qwidget
