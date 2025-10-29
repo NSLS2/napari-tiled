@@ -34,7 +34,7 @@ dependencies = [
     "napari",
     "qtpy",
     "scikit-image",
-    "tiled[array,client]",
+    "tiled[array,client]>=0.2.0",
 ]
 
 [project.optional-dependencies]
