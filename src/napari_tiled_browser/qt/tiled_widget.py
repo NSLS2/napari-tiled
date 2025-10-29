@@ -35,6 +35,7 @@ from tiled.structures.core import StructureFamily
 
 from napari_tiled_browser.models.tiled_selector import TiledSelector
 from napari_tiled_browser.models.tiled_worker import TiledWorker
+from napari_tiled_browser.models.tiled_subscriber import TiledSubscriber
 from napari_tiled_browser.qt.tiled_search import QTiledSearchWidget
 
 _logger = logging.getLogger(__name__)
@@ -246,6 +247,13 @@ class QTiledBrowser(QWidget):
             node_path_parts=self.model.node_path_parts,
         )
         runnable.signals.results.connect(self.populate_table)
+        self.thread_pool.start(runnable)
+
+    def subscribe_to_table_data(self):
+        runnable = TiledSubscriber(
+            client=self.model.client,
+            node_path_parts=self.model.node_path_parts,
+        )
         self.thread_pool.start(runnable)
 
     def populate_table(self, results):
