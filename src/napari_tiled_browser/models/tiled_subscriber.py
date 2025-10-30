@@ -11,13 +11,11 @@ class TiledSubscriber(QRunnable):
         self,
         *,
         client,
-        node_path_parts,
         **kwargs,
     ):
         super().__init__()
         self.signals = TiledSubscriberSignals()
         self.client = client
-        self.node_path_parts = node_path_parts
 
     def run(self):
         catalog_sub = self.client.subscribe()

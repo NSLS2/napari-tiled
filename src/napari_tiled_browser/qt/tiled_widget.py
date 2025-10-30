@@ -250,10 +250,8 @@ class QTiledBrowser(QWidget):
         self.thread_pool.start(runnable)
 
     def subscribe_to_table_data(self):
-        runnable = TiledSubscriber(
-            client=self.model.client,
-            node_path_parts=self.model.node_path_parts,
-        )
+        catalog = self.model.client[self.model.node_path_parts]
+        runnable = TiledSubscriber(catalog)
         self.thread_pool.start(runnable)
 
     def populate_table(self, results):
