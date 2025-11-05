@@ -1,4 +1,4 @@
-from qtpy.QtCore import QObject, QRunnable, Signal
+from qtpy.QtCore import QObject, QThread, Signal
 
 
 class TiledSubscriberSignals(QObject):
@@ -6,7 +6,7 @@ class TiledSubscriberSignals(QObject):
     results = Signal(object)
 
 
-class TiledSubscriber(QRunnable):
+class TiledSubscriber(QThread):
     def __init__(
         self,
         *,
