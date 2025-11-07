@@ -340,6 +340,7 @@ class QTiledBrowser(QWidget):
                 return
             # self._set_current_location_label()
             self.fetch_table_data()
+            self.subscribe_to_table_data()
             self._rebuild_current_path_layout()
 
         self.model.url_changed.connect(self.reset_url_entry)

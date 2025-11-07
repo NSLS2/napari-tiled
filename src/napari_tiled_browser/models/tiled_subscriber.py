@@ -1,4 +1,16 @@
-from qtpy.QtCore import QObject, QThread, Signal
+from qtpy.QtCore import QObject, QThread, QThreadPool, QRunnable, Signal
+
+
+class QtExecutor:
+    def __init__(self):
+        self.threadpool = QThreadPool.globalInstance()
+
+    def submit(self, f, *args):
+        runnable = QRunnable.create(lambda: f(*args))
+        self.threadpool.start(runnable)
+
+    def shutdown(self, wait: bool = True):
+        pass
 
 
 class TiledSubscriberSignals(QObject):
@@ -9,16 +21,15 @@ class TiledSubscriberSignals(QObject):
 class TiledSubscriber(QThread):
     def __init__(
         self,
-        *,
         client,
         **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
         self.signals = TiledSubscriberSignals()
         self.client = client
 
     def run(self):
-        catalog_sub = self.client.subscribe()
+        catalog_sub = self.client.subscribe(QtExecutor())
         catalog_sub.child_created.add_callback(on_new_child)
         catalog_sub.start()
 
@@ -27,7 +38,7 @@ def on_new_child(update):
     "A new child node has been created in a container."
     child = update.child()
     print(child)
-    sub = child.subscribe()
+    sub = child.subscribe(QtExecutor())
     # Is the child also a container?
     if child.structure_family == "container":
         # Recursively subscribe to the children of this new container.
