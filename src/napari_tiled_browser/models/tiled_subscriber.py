@@ -1,4 +1,4 @@
-from qtpy.QtCore import QObject, QThread, QThreadPool, QRunnable, Signal
+from qtpy.QtCore import QObject, QRunnable, QThread, QThreadPool, Signal
 
 
 class QtExecutor:
@@ -6,6 +6,7 @@ class QtExecutor:
         self.threadpool = QThreadPool.globalInstance()
 
     def submit(self, f, *args):
+        print("     In QtExecutor.submit")
         runnable = QRunnable.create(lambda: f(*args))
         self.threadpool.start(runnable)
 
@@ -29,9 +30,13 @@ class TiledSubscriber(QThread):
         self.client = client
 
     def run(self):
+        print("In TiledSubscriber.run")
+        print(self.client)
         catalog_sub = self.client.subscribe(QtExecutor())
         catalog_sub.child_created.add_callback(on_new_child)
+        print("About to start catalog_sub")
         catalog_sub.start()
+        # this still gives 500 error
 
 
 def on_new_child(update):

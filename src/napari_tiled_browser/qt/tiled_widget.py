@@ -34,8 +34,8 @@ from tiled.client.container import Container
 from tiled.structures.core import StructureFamily
 
 from napari_tiled_browser.models.tiled_selector import TiledSelector
-from napari_tiled_browser.models.tiled_worker import TiledWorker
 from napari_tiled_browser.models.tiled_subscriber import TiledSubscriber
+from napari_tiled_browser.models.tiled_worker import TiledWorker
 from napari_tiled_browser.qt.tiled_search import QTiledSearchWidget
 
 _logger = logging.getLogger(__name__)
@@ -148,6 +148,8 @@ class QTiledBrowser(QWidget):
         self.catalog_table.setSelectionMode(
             QAbstractItemView.SelectionMode.SingleSelection
         )  # disable multi-select
+        self.catalog_live_button = QPushButton("LIVE")
+        self.catalog_live_button.setCheckable(True)
         self.catalog_table_widget = QWidget()
         self.catalog_breadcrumbs = None
 
@@ -165,6 +167,7 @@ class QTiledBrowser(QWidget):
 
         # Catalog table layout
         catalog_table_layout = QVBoxLayout()
+        catalog_table_layout.addWidget(self.catalog_live_button)
         catalog_table_layout.addWidget(self.current_path_widget)
         catalog_table_layout.addLayout(catalog_info_layout)
         catalog_table_layout.addWidget(self.navigation_widget)
@@ -251,8 +254,8 @@ class QTiledBrowser(QWidget):
 
     def subscribe_to_table_data(self):
         catalog = self.model.client[self.model.node_path_parts]
-        runnable = TiledSubscriber(catalog)
-        self.thread_pool.start(runnable)
+        self.sub_thread = TiledSubscriber(catalog)
+        self.sub_thread.run()
 
     def populate_table(self, results):
         _logger.debug("QTiledBrowser.populate_table()...")
@@ -340,7 +343,7 @@ class QTiledBrowser(QWidget):
                 return
             # self._set_current_location_label()
             self.fetch_table_data()
-            self.subscribe_to_table_data()
+            # self.subscribe_to_table_data()
             self._rebuild_current_path_layout()
 
         self.model.url_changed.connect(self.reset_url_entry)
@@ -369,6 +372,9 @@ class QTiledBrowser(QWidget):
 
     def connect_self_signals(self):
         self.load_button.clicked.connect(self._on_load)
+        self.catalog_live_button.clicked.connect(
+            self._on_catalog_live_button_clicked
+        )
 
         # self.catalog_table.itemDoubleClicked.connect(
         #     self._on_item_double_click
@@ -379,21 +385,16 @@ class QTiledBrowser(QWidget):
         self.reset_url_entry()
         self.reset_rows_per_page()
 
-    # def open_node(self, node_id):
-    #     node = self.get_current_node()[node_id]
-    #     family = node.item["attributes"]["structure_family"]
-    #     # TODO: make this dictionary with StructureFamily type as key
-    #     # and action for StructureFamily as value
-    #     if isinstance(node, DummyClient):
-    #         show_info(f"Cannot open type: '{family}'")
-    #         return
-    #     if family == StructureFamily.array:
-    #         layer = self.viewer.add_image(node, name=node_id)
-    #         layer.reset_contrast_limits()
-    #     elif family == StructureFamily.container:
-    #         self.enter_node(node_id)
-    #     else:
-    #         show_info(f"Type not supported:'{family}")
+    def _on_catalog_live_button_clicked(self):
+        # TODO: add check for CatalogOfBlueskyRuns and enable/disable live button as needed
+        # subscribe to table data if live button checked
+        if self.catalog_live_button.isChecked():
+            self.subscribe_to_table_data()
+        else:
+            # cleanup subscriptions
+            if self.sub_thread.isRunning():
+                self.sub_thread.quit()
+                self.sub_thread.wait()
 
     def _on_load(self):
         selected = self.catalog_table.selectedItems()
