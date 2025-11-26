@@ -34,7 +34,7 @@ from tiled.client.container import Container
 from tiled.structures.core import StructureFamily
 
 from napari_tiled_browser.models.tiled_selector import TiledSelector
-from napari_tiled_browser.models.tiled_subscriber import TiledSubscriber
+from napari_tiled_browser.models.tiled_subscriber import TiledSubscriber, on_new_child
 from napari_tiled_browser.models.tiled_worker import TiledWorker
 from napari_tiled_browser.qt.tiled_search import QTiledSearchWidget
 
@@ -255,6 +255,7 @@ class QTiledBrowser(QWidget):
     def subscribe_to_table_data(self):
         catalog = self.model.client[self.model.node_path_parts]
         self.sub_thread = TiledSubscriber(catalog)
+        self.sub_thread.sub.child_created.add_callback(on_new_child)
         self.sub_thread.run()
 
     def populate_table(self, results):

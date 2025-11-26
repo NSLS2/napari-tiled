@@ -28,14 +28,12 @@ class TiledSubscriber(QThread):
         super().__init__(**kwargs)
         self.signals = TiledSubscriberSignals()
         self.client = client
+        print("In TiledSubscriber.init")
+        print(self.client)
+        self.sub = self.client.subscribe(QtExecutor())
 
     def run(self):
-        print("In TiledSubscriber.run")
-        print(self.client)
-        catalog_sub = self.client.subscribe(QtExecutor())
-        catalog_sub.child_created.add_callback(on_new_child)
-        print("About to start catalog_sub")
-        catalog_sub.start()
+        self.sub.start()
         # this still gives 500 error
 
 
@@ -43,18 +41,18 @@ def on_new_child(update):
     "A new child node has been created in a container."
     child = update.child()
     print(child)
-    sub = child.subscribe(QtExecutor())
+    ts = TiledSubscriber(child)
     # Is the child also a container?
     if child.structure_family == "container":
         # Recursively subscribe to the children of this new container.
-        sub.child_created.add_callback(on_new_child)
+        ts.sub.child_created.add_callback(on_new_child)
     else:
         # Subscribe to data updates (i.e. appended table rows or array slices).
-        sub.new_data.add_callback(on_new_data)
+        ts.sub.new_data.add_callback(on_new_data)
         # Launch the subscription.
         # Ask the server to replay from the very first update, if we already
         # missed some.
-    sub.start_in_thread(1)
+    ts.run()
 
 
 def on_new_data(update):

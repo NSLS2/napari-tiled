@@ -291,11 +291,12 @@ class TiledSelector:
         # even if there is only one item in the tuple
         # This may change in the future when the capability to pass a list
         # of uids to tiled is removed
-        if node_path_parts:
-            return self.client[node_path_parts]
+        client = self.client
+        # Walk down one node at a time (slow, but safe).
+        for segment in node_path_parts:
+            client = client[segment]
 
-        # An empty tuple indicates the root node
-        return self.client
+        return client
 
     # @functools.lru_cache(maxsize=1)
     def get_node(self, node_path_parts: tuple[str], node_offset: int) -> list:
