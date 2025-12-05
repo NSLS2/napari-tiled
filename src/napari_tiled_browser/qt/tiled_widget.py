@@ -34,7 +34,7 @@ from tiled.client.container import Container
 from tiled.structures.core import StructureFamily
 
 from napari_tiled_browser.models.tiled_selector import TiledSelector
-from napari_tiled_browser.models.tiled_subscriber import TiledSubscriber, on_new_child
+from napari_tiled_browser.models.tiled_subscriber import SubscriptionManager
 from napari_tiled_browser.models.tiled_worker import TiledWorker
 from napari_tiled_browser.qt.tiled_search import QTiledSearchWidget
 
@@ -83,6 +83,8 @@ class QTiledBrowser(QWidget):
         self.model = TiledSelector()
 
         self.thread_pool = QThreadPool.globalInstance()
+
+        self.sub_manager = SubscriptionManager()
 
         self.create_layout()
         self.connect_model_signals()
@@ -252,11 +254,12 @@ class QTiledBrowser(QWidget):
         runnable.signals.results.connect(self.populate_table)
         self.thread_pool.start(runnable)
 
-    def subscribe_to_table_data(self):
-        catalog = self.model.client[self.model.node_path_parts]
-        self.sub_thread = TiledSubscriber(catalog)
-        self.sub_thread.sub.child_created.add_callback(on_new_child)
-        self.sub_thread.run()
+    # def subscribe_to_table_data(self):
+    #     catalog = self.model.client[self.model.node_path_parts]
+    #     self.sub_thread = TiledSubscriber(catalog)
+    #     self.sub_thread.sub.child_created.add_callback(on_new_child)
+    #     # self.sub_thread.run()  # TODO: this may change
+    #     # create_subscription.emit()
 
     def populate_table(self, results):
         _logger.debug("QTiledBrowser.populate_table()...")
@@ -390,12 +393,12 @@ class QTiledBrowser(QWidget):
         # TODO: add check for CatalogOfBlueskyRuns and enable/disable live button as needed
         # subscribe to table data if live button checked
         if self.catalog_live_button.isChecked():
-            self.subscribe_to_table_data()
+            # self.subscribe_to_table_data()
+            child = self.model.client[self.model.node_path_parts]
+            self.sub_manager.create_subscription.emit(child)
         else:
             # cleanup subscriptions
-            if self.sub_thread.isRunning():
-                self.sub_thread.quit()
-                self.sub_thread.wait()
+            self.sub_manager.clear()
 
     def _on_load(self):
         selected = self.catalog_table.selectedItems()

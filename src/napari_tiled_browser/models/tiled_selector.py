@@ -349,7 +349,7 @@ class TiledSelector:
         family = node.item["attributes"]["structure_family"]
 
         if family == StructureFamily.array:
-            _logger.info("Found array, plotting TODO")
+            _logger.info("  Found array, plotting")
             self.plottable_data_received.emit(node, child_node_path)
         elif family == StructureFamily.container:
             _logger.debug("Entering container: %s", child_node_path)
