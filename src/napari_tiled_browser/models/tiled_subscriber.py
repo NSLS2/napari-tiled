@@ -13,7 +13,6 @@ class QtExecutor:
         self.threadpool = QThreadPool.globalInstance()
 
     def submit(self, f, *args):
-        print("     In QtExecutor.submit")
         runnable = QRunnable.create(lambda: f(*args))
         self.threadpool.start(runnable)
 
@@ -102,7 +101,6 @@ class SubscriptionManager(QObject):
         self.create_subscription.connect(self.on_create_subscription)
 
     def on_create_subscription(self, child):
-        # self.on_new_child(child)
         sub = child.subscribe(executor=QtExecutor())
         # Is the child also a container?
         if child.structure_family == "container":
@@ -128,19 +126,18 @@ class SubscriptionManager(QObject):
     def on_new_child(self, update):
         "A new child node has been created in a container."
         child = update.child()
-        print(child)
 
         self.create_subscription.emit(child)
 
     def on_new_data(self, update):
         "Data has been updated (maybe appended) to an array or table."
-        print(update.data())
         self.plottable_array_data_received.emit(
             update.data(), "/".join(update.subscription.segments)
         )
 
     def clear(self):
-        # print(self.active_subs)
+        # TODO: Fix AttributeError
+        # 'ContainerSubscription' object has no attribute 'type'
         for thread in self.active_subs:
             thread.ts.sub.disconnect()
         self.active_subs.clear()
