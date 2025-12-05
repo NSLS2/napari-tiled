@@ -31,9 +31,16 @@ class QtTiledSubscription(QObject):
         super().__init__()
         self.sub = subscription
 
-        print(f"QtTiledSub... {self.sub}")
-        self.sub.stream_closed.add_callback(self.stream_closed.emit)
-        self.sub.disconnected.add_callback(self.disconnected.emit)
+        self.mapping = {
+            "stream_closed": self.stream_closed,
+            "disconnected": self.disconnected,
+        }
+
+        self.sub.stream_closed.add_callback(self._emit)
+        self.sub.disconnected.add_callback(self._emit)
+
+    def _emit(self, update):
+        self.mapping[update.type].emit(update)
 
 
 class QtArraySubscription(QtTiledSubscription):
@@ -41,7 +48,13 @@ class QtArraySubscription(QtTiledSubscription):
 
     def __init__(self, subscription: ArraySubscription):
         super().__init__(subscription)
-        self.sub.new_data.add_callback(self.new_data.emit)
+        self.mapping.update(
+            {
+                "array-data": self.new_data,
+                "array-ref": self.new_data,
+            }
+        )
+        self.sub.new_data.add_callback(self._emit)
 
 
 class QtContainerSubscription(QtTiledSubscription):
@@ -50,13 +63,16 @@ class QtContainerSubscription(QtTiledSubscription):
 
     def __init__(self, subscription: ContainerSubscription):
         super().__init__(subscription)
-        print(f"!!!! {self.sub}")
 
-    def add_callbacks(self):
-        self.sub.child_created.add_callback(self.child_created.emit)
-        self.sub.child_metadata_updated.add_callback(
-            self.child_metadata_updated.emit
+        self.mapping.update(
+            {
+                "container-child-created": self.child_created,
+                "container-child-metadata-updated": self.child_metadata_updated,
+            }
         )
+
+        self.sub.child_created.add_callback(self._emit)
+        self.sub.child_metadata_updated.add_callback(self._emit)
 
 
 class TiledSubscriptionThread(QThread):
@@ -76,6 +92,9 @@ class TiledSubscriptionThread(QThread):
 
 class SubscriptionManager(QObject):
     create_subscription = Signal(object)
+    plottable_array_data_received = Signal(
+        object, str  # data to plot; child_node_path, name of image
+    )
 
     def __init__(self):
         super().__init__()
@@ -85,18 +104,12 @@ class SubscriptionManager(QObject):
     def on_create_subscription(self, child):
         # self.on_new_child(child)
         sub = child.subscribe(executor=QtExecutor())
-        print(f"Have sub: {sub}")
         # Is the child also a container?
         if child.structure_family == "container":
-            print("     container")
             # Recursively subscribe to the children of this new container.
             ts = QtContainerSubscription(sub)
-            # print(ts)
             ts.child_created.connect(self.on_new_child)
-            # ts.child_created.emit(sub)
-            ts.add_callbacks()
         elif child.structure_family == "array":
-            print("         array")
             # Subscribe to data updates (i.e. appended table rows or array slices).
             ts = QtArraySubscription(sub)
             ts.new_data.connect(self.on_new_data)
@@ -105,14 +118,15 @@ class SubscriptionManager(QObject):
             # missed some.
         else:
             # Ignore other structures (e.g. tables) for now.
-            pass
+            ts = None
+        if ts is None:
+            return
         thread = TiledSubscriptionThread(ts)
         thread.start(1)
         self.active_subs.append(thread)
 
     def on_new_child(self, update):
         "A new child node has been created in a container."
-        print("new child HERE!!!")
         child = update.child()
         print(child)
 
@@ -120,11 +134,13 @@ class SubscriptionManager(QObject):
 
     def on_new_data(self, update):
         "Data has been updated (maybe appended) to an array or table."
-        print("new data HERE!!!")
         print(update.data())
+        self.plottable_array_data_received.emit(
+            update.data(), "/".join(update.subscription.segments)
+        )
 
     def clear(self):
-        print(self.active_subs)
+        # print(self.active_subs)
         for thread in self.active_subs:
             thread.ts.sub.disconnect()
         self.active_subs.clear()

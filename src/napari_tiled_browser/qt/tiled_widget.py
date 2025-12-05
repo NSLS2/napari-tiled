@@ -254,13 +254,6 @@ class QTiledBrowser(QWidget):
         runnable.signals.results.connect(self.populate_table)
         self.thread_pool.start(runnable)
 
-    # def subscribe_to_table_data(self):
-    #     catalog = self.model.client[self.model.node_path_parts]
-    #     self.sub_thread = TiledSubscriber(catalog)
-    #     self.sub_thread.sub.child_created.add_callback(on_new_child)
-    #     # self.sub_thread.run()  # TODO: this may change
-    #     # create_subscription.emit()
-
     def populate_table(self, results):
         _logger.debug("QTiledBrowser.populate_table()...")
         original_state = {}
@@ -352,10 +345,18 @@ class QTiledBrowser(QWidget):
 
         self.model.url_changed.connect(self.reset_url_entry)
 
-        @self.model.plottable_data_received.connect
-        def on_plottable_data_received(node, child_node_path):
+        @self.model.plottable_image_data_received.connect
+        def on_plottable_image_data_received(node, child_node_path):
             layer = self.viewer.add_image(node, name=child_node_path)
             layer.reset_contrast_limits()
+
+        @self.sub_manager.plottable_array_data_received.connect
+        def on_plottable_array_data_received(node, child_node_path):
+            try:
+                self.viewer.layers[child_node_path].data = node
+            except KeyError:
+                layer = self.viewer.add_image(node, name=child_node_path)
+                layer.reset_contrast_limits()
 
     def connect_model_slots(self):
         """Connect model slots to dialog signals."""
