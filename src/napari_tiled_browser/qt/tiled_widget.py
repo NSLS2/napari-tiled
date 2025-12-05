@@ -34,6 +34,7 @@ from tiled.client.container import Container
 from tiled.structures.core import StructureFamily
 
 from napari_tiled_browser.models.tiled_selector import TiledSelector
+from napari_tiled_browser.models.tiled_subscriber import SubscriptionManager
 from napari_tiled_browser.models.tiled_worker import TiledWorker
 from napari_tiled_browser.qt.tiled_search import QTiledSearchWidget
 
@@ -78,9 +79,12 @@ class QTiledBrowser(QWidget):
         super().__init__()
         self.viewer = napari_viewer
 
-        self.model = TiledSelector(url="https://tiled.nsls2.bnl.gov/api")
+        # TODO: try using TILED_DEFAULT_PROFILE here?
+        self.model = TiledSelector()
 
         self.thread_pool = QThreadPool.globalInstance()
+
+        self.sub_manager = SubscriptionManager()
 
         self.create_layout()
         self.connect_model_signals()
@@ -146,6 +150,8 @@ class QTiledBrowser(QWidget):
         self.catalog_table.setSelectionMode(
             QAbstractItemView.SelectionMode.SingleSelection
         )  # disable multi-select
+        self.catalog_live_button = QPushButton("LIVE")
+        self.catalog_live_button.setCheckable(True)
         self.catalog_table_widget = QWidget()
         self.catalog_breadcrumbs = None
 
@@ -163,6 +169,7 @@ class QTiledBrowser(QWidget):
 
         # Catalog table layout
         catalog_table_layout = QVBoxLayout()
+        catalog_table_layout.addWidget(self.catalog_live_button)
         catalog_table_layout.addWidget(self.current_path_widget)
         catalog_table_layout.addLayout(catalog_info_layout)
         catalog_table_layout.addWidget(self.navigation_widget)
@@ -333,9 +340,23 @@ class QTiledBrowser(QWidget):
                 return
             # self._set_current_location_label()
             self.fetch_table_data()
+            # self.subscribe_to_table_data()
             self._rebuild_current_path_layout()
 
         self.model.url_changed.connect(self.reset_url_entry)
+
+        @self.model.plottable_image_data_received.connect
+        def on_plottable_image_data_received(node, child_node_path):
+            layer = self.viewer.add_image(node, name=child_node_path)
+            layer.reset_contrast_limits()
+
+        @self.sub_manager.plottable_array_data_received.connect
+        def on_plottable_array_data_received(node, child_node_path):
+            try:
+                self.viewer.layers[child_node_path].data = node
+            except KeyError:
+                layer = self.viewer.add_image(node, name=child_node_path)
+                layer.reset_contrast_limits()
 
     def connect_model_slots(self):
         """Connect model slots to dialog signals."""
@@ -355,15 +376,10 @@ class QTiledBrowser(QWidget):
         )
 
     def connect_self_signals(self):
-        # self.connect_button.clicked.connect(self._on_connect_clicked)
-        # self.previous_page.clicked.connect(self._on_prev_page_clicked)
-        # self.next_page.clicked.connect(self._on_next_page_clicked)
-
-        # self.rows_per_page_selector.currentTextChanged.connect(
-        #     self._on_rows_per_page_changed
-        # )
-
         self.load_button.clicked.connect(self._on_load)
+        self.catalog_live_button.clicked.connect(
+            self._on_catalog_live_button_clicked
+        )
 
         # self.catalog_table.itemDoubleClicked.connect(
         #     self._on_item_double_click
@@ -374,48 +390,16 @@ class QTiledBrowser(QWidget):
         self.reset_url_entry()
         self.reset_rows_per_page()
 
-    # def set_root(self, root):
-    #     self.root = root
-    #     self.node_path = ()
-    #     self._current_page = 0
-    #     if root is not None:
-    #         self.catalog_table_widget.setVisible(True)
-    #         self._rebuild()
-
-    # def get_current_node(self):
-    #     return self.get_node(self.node_path)
-
-    # # @functools.lru_cache(maxsize=1)
-    # def get_node(self, node_path):
-    #     if node_path:
-    #         return self.root[node_path]
-    #     return self.root
-
-    # def enter_node(self, node_id):
-    #     self.node_path += (node_id,)
-    #     self._current_page = 0
-    #     self._rebuild()
-
-    # def exit_node(self):
-    #     self.node_path = self.node_path[:-1]
-    #     self._current_page = 0
-    #     self._rebuild()
-
-    # def open_node(self, node_id):
-    #     node = self.get_current_node()[node_id]
-    #     family = node.item["attributes"]["structure_family"]
-    #     # TODO: make this dictionary with StructureFamily type as key
-    #     # and action for StructureFamily as value
-    #     if isinstance(node, DummyClient):
-    #         show_info(f"Cannot open type: '{family}'")
-    #         return
-    #     if family == StructureFamily.array:
-    #         layer = self.viewer.add_image(node, name=node_id)
-    #         layer.reset_contrast_limits()
-    #     elif family == StructureFamily.container:
-    #         self.enter_node(node_id)
-    #     else:
-    #         show_info(f"Type not supported:'{family}")
+    def _on_catalog_live_button_clicked(self):
+        # TODO: add check for CatalogOfBlueskyRuns and enable/disable live button as needed
+        # subscribe to table data if live button checked
+        if self.catalog_live_button.isChecked():
+            # self.subscribe_to_table_data()
+            child = self.model.client[self.model.node_path_parts]
+            self.sub_manager.create_subscription.emit(child)
+        else:
+            # cleanup subscriptions
+            self.sub_manager.clear()
 
     def _on_load(self):
         selected = self.catalog_table.selectedItems()
@@ -429,12 +413,6 @@ class QTiledBrowser(QWidget):
 
     def _on_breadcrumb_clicked(self, node_index):
         self.model.jump_to_node(node_index)
-
-    # def _on_rows_per_page_changed(self, value):
-    #     self._rows_per_page = int(value)
-    #     self._current_page = 0
-    #     self._rebuild_table()
-    #     self._set_current_location_label()
 
     # def _on_item_double_click(self, item):
     #     if item is self.catalog_breadcrumbs:
@@ -457,89 +435,6 @@ class QTiledBrowser(QWidget):
     def _clear_metadata(self):
         self.info_box.setText("")
         # self.load_button.setEnabled(False)
-
-    # def _rebuild_current_path_label(self):
-    #     path = ["root"]
-    #     for node_id in self.node_path:
-    #         if len(node_id) > self.NODE_ID_MAXLEN:
-    #             node_id = node_id[: self.NODE_ID_MAXLEN - 3] + "..."
-    #         path.append(node_id)
-    #     path.append("")
-
-    #     self.current_path_label.setText(" / ".join(path))
-
-    # def _rebuild_table(self):
-    #     prev_block = self.catalog_table.blockSignals(True)
-    #     # Remove all rows first
-    #     while self.catalog_table.rowCount() > 0:
-    #         self.catalog_table.removeRow(0)
-
-    #     if self.node_path:
-    #         # add breadcrumbs
-    #         self.catalog_breadcrumbs = QTableWidgetItem("..")
-    #         self.catalog_table.insertRow(0)
-    #         self.catalog_table.setItem(0, 0, self.catalog_breadcrumbs)
-
-    #     # Then add new rows
-    #     for _ in range(self._rows_per_page):
-    #         last_row_position = self.catalog_table.rowCount()
-    #         self.catalog_table.insertRow(last_row_position)
-    #     node_offset = self._rows_per_page * self._current_page
-    #     # Fetch a page of keys.
-    #     items = self.get_current_node().items()[
-    #         node_offset : node_offset + self._rows_per_page
-    #     ]
-    #     # Loop over rows, filling in keys until we run out of keys.
-    #     start = 1 if self.node_path else 0
-    #     for row_index, (key, value) in zip(
-    #         range(start, self.catalog_table.rowCount()), items, strict=False
-    #     ):
-    #         family = value.item["attributes"]["structure_family"]
-    #         if family == StructureFamily.container:
-    #             icon = self.style().standardIcon(QStyle.SP_DirHomeIcon)
-    #         elif family == StructureFamily.array:
-    #             icon = QIcon(QPixmap(ICONS["new_image"]))
-    #         else:
-    #             icon = self.style().standardIcon(
-    #                 QStyle.SP_TitleBarContextHelpButton
-    #             )
-    #         self.catalog_table.setItem(
-    #             row_index, 0, QTableWidgetItem(icon, key)
-    #         )
-
-    #     # remove extra rows
-    #     for _ in range(self._rows_per_page - len(items)):
-    #         self.catalog_table.removeRow(self.catalog_table.rowCount() - 1)
-
-    #     headers = [
-    #         str(x + 1)
-    #         for x in range(
-    #             node_offset, node_offset + self.catalog_table.rowCount()
-    #         )
-    #     ]
-    #     if self.node_path:
-    #         headers = [""] + headers
-
-    #     self.catalog_table.setVerticalHeaderLabels(headers)
-    #     self._clear_metadata()
-    #     self.catalog_table.blockSignals(prev_block)
-
-    # def _rebuild(self):
-    #     self._rebuild_table()
-    #     self._rebuild_current_path_label()
-    #     self._set_current_location_label()
-
-    # def _on_prev_page_clicked(self):
-    #     if self._current_page != 0:
-    #         self._current_page -= 1
-    #         self._rebuild()
-
-    # def _on_next_page_clicked(self):
-    #     if (
-    #         self._current_page * self._rows_per_page
-    #     ) + self._rows_per_page < len(self.get_current_node()):
-    #         self._current_page += 1
-    #         self._rebuild()
 
     def _set_current_location_label(self):
         _logger.debug("QTiledBrowser._set_current_location_label()...")
