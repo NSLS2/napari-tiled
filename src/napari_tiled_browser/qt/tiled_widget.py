@@ -9,6 +9,7 @@ Replace code below according to your needs.
 
 import collections
 import logging
+import os
 from datetime import date, datetime
 
 from napari.resources._icons import ICONS
@@ -31,6 +32,7 @@ from qtpy.QtWidgets import (
 )
 from tiled.client.array import DaskArrayClient
 from tiled.client.container import Container
+from tiled.profiles import load_profiles
 from tiled.structures.core import StructureFamily
 
 from napari_tiled_browser.models.tiled_selector import TiledSelector
@@ -79,8 +81,15 @@ class QTiledBrowser(QWidget):
         super().__init__()
         self.viewer = napari_viewer
 
-        # TODO: try using TILED_DEFAULT_PROFILE here?
-        self.model = TiledSelector()
+        profile = os.environ.get("TILED_PROFILE", "")
+        default_url = os.environ.get("TILED_DEFAULT_URL", "")
+
+        profiles = load_profiles()
+        _, profile_details = profiles.get(profile, (None, {}))
+        url = profile_details.get("uri", default_url)
+        _logger.debug("Will attempt to connect to Tiled at %s", url)
+
+        self.model = TiledSelector(url=url)
 
         self.thread_pool = QThreadPool.globalInstance()
 
