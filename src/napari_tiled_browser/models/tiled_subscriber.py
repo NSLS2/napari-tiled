@@ -103,6 +103,7 @@ class SubscriptionManager(QObject):
     def on_create_subscription(self, child):
         sub = child.subscribe(executor=QtExecutor())
         # Is the child also a container?
+        print(f"----------        {child.structure_family}")
         if child.structure_family == "container":
             # Recursively subscribe to the children of this new container.
             ts = QtContainerSubscription(sub)

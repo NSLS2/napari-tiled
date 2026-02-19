@@ -1,4 +1,18 @@
+import logging
+
 from qtpy.QtCore import QObject, QRunnable, Signal
+
+_logger = logging.getLogger(__name__)
+_logger.setLevel(logging.DEBUG)
+
+console = logging.StreamHandler()
+console.setLevel(logging.DEBUG)
+formatter = logging.Formatter(
+    "%(asctime)s %(name)-12s %(levelname)-8s %(message)s",
+    datefmt="%m-%d %H:%M:%S",
+)
+console.setFormatter(formatter)
+_logger.addHandler(console)
 
 
 class TiledWorkerSignals(QObject):
