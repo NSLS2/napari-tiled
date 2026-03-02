@@ -7,6 +7,7 @@ from math import ceil
 from urllib.parse import ParseResult
 from urllib.parse import urlparse as _urlparse
 
+from bluesky_tiled_plugins import BlueskyRun
 from httpx import ConnectError
 from qtpy.QtCore import QObject, Signal
 from tiled.client import from_uri
@@ -324,6 +325,11 @@ class TiledSelector:
         _logger.info("Entering node...")
         self.node_path_parts += (child_node_path,)
         self._current_page = 0
+
+        run = self.client[self.node_path_parts]
+        if isinstance(run, BlueskyRun):
+            # If we are in a BlueskyRun, clear search results
+            self.search_results = None
         self.table_changed.emit(self.node_path_parts)
 
     def exit_node(self) -> None:
