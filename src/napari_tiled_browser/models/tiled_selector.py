@@ -7,7 +7,6 @@ from math import ceil
 from urllib.parse import ParseResult
 from urllib.parse import urlparse as _urlparse
 
-from bluesky_tiled_plugins import BlueskyRun
 from httpx import ConnectError
 from qtpy.QtCore import QObject, Signal
 from tiled.client import from_uri
@@ -154,6 +153,15 @@ class TiledSelector:
             return len(self.search_results)
         else:
             return len(self.get_current_node())
+
+    def is_catalog_of_bluesky_runs(self, node):
+        specs = node.item["attributes"]["specs"]
+        for spec in specs:
+            if spec["name"] == "CatalogOfBlueskyRuns":
+                return True
+            else:
+                pass
+        return False
 
     def on_url_text_edited(self, new_text: str):
         """Handle a notification that the URL is being edited."""
@@ -327,13 +335,12 @@ class TiledSelector:
         self.node_path_parts += (child_node_path,)
         self._current_page = 0
 
-        run = self.client[self.node_path_parts]
-        if isinstance(run, BlueskyRun):
-            # If we are in a BlueskyRun, don't display search results
-            self.display_search_results = False
-        else:
-            # Otherwise, display last search results
+        node = self.client[self.node_path_parts]
+        if self.is_catalog_of_bluesky_runs(node):
+            # Only display search results if we are in a CatalogOfBlueskyRuns
             self.display_search_results = True
+        else:
+            self.display_search_results = False
         self.table_changed.emit(self.node_path_parts)
 
     def exit_node(self) -> None:
@@ -343,11 +350,12 @@ class TiledSelector:
         _logger.info("Exiting node...")
         self.node_path_parts = self.node_path_parts[:-1]
         self._current_page = 0
-        run = self.client[self.node_path_parts]
-        if isinstance(run, BlueskyRun):
-            self.display_search_results = False
-        else:
+        node = self.client[self.node_path_parts]
+        if self.is_catalog_of_bluesky_runs(node):
+            # Only display search results if we are in a CatalogOfBlueskyRuns
             self.display_search_results = True
+        else:
+            self.display_search_results = False
         self.table_changed.emit(self.node_path_parts)
 
     def jump_to_node(self, index) -> None:
@@ -357,11 +365,12 @@ class TiledSelector:
         _logger.info("Jumping to node at index %d...", index)
         self.node_path_parts = self.node_path_parts[:index]
         self._current_page = 0
-        run = self.client[self.node_path_parts]
-        if isinstance(run, BlueskyRun):
-            self.display_search_results = False
-        else:
+        node = self.client[self.node_path_parts]
+        if self.is_catalog_of_bluesky_runs(node):
+            # Only display search results if we are in a CatalogOfBlueskyRuns
             self.display_search_results = True
+        else:
+            self.display_search_results = False
         self.table_changed.emit(self.node_path_parts)
 
     def open_node(self, child_node_path: str) -> None:
@@ -386,15 +395,13 @@ class TiledSelector:
             _client = self.client[self.node_path_parts]
         else:
             _client = self.client
+        self.display_search_results = True
         if search_type == "key_value":
             results = _client.search(Key(key) == value)
-            self.display_search_results = True
         elif search_type == "full_text":
             results = _client.search(FullText(value))
-            self.display_search_results = True
         elif search_type == "regex":
             results = _client.search(Regex(key, pattern=value))
-            self.display_search_results = True
         else:
             _logger.info("Unknown search type %s. Returning...", search_type)
             results = None
