@@ -13,7 +13,7 @@ import os
 from datetime import date, datetime
 
 from napari.resources._icons import ICONS
-from qtpy.QtCore import Qt, QThreadPool, Signal
+from qtpy.QtCore import Qt, QThreadPool, QTimer, Signal
 from qtpy.QtGui import QIcon, QPixmap
 from qtpy.QtWidgets import (
     QAbstractItemView,
@@ -38,6 +38,7 @@ from tiled.structures.core import StructureFamily
 from napari_tiled_browser.models.tiled_selector import TiledSelector
 from napari_tiled_browser.models.tiled_subscriber import SubscriptionManager
 from napari_tiled_browser.models.tiled_worker import TiledWorker
+from napari_tiled_browser.qt.tiled_login import QTiledLoginWidget
 from napari_tiled_browser.qt.tiled_search import QTiledSearchWidget
 
 _logger = logging.getLogger(__name__)
@@ -108,11 +109,21 @@ class QTiledBrowser(QWidget):
         self.connection_label = QLabel("No url connected")
         self.connection_widget = QWidget()
 
+        # Login widget
+        self.login_widget = QTiledLoginWidget()
+        self.login_widget.setVisible(False)
+
+        # Device code polling timer
+        self._device_code_timer = QTimer()
+        self._device_code_timer.setInterval(5000)
+        self._device_code_timer.timeout.connect(self._poll_device_code)
+
         # Connection layout
         connection_layout = QVBoxLayout()
         connection_layout.addWidget(self.url_entry)
         connection_layout.addWidget(self.connect_button)
         connection_layout.addWidget(self.connection_label)
+        connection_layout.addWidget(self.login_widget)
         connection_layout.addStretch()
         self.connection_widget.setLayout(connection_layout)
 
@@ -334,12 +345,54 @@ class QTiledBrowser(QWidget):
         @self.model.client_connected.connect
         def on_client_connected(url: str, api_url: str):
             self.connection_label.setText(f"Connected to {url}")
-            # TODO: Display the contents of the Tiled node
 
         @self.model.client_connection_error.connect
         def on_client_connection_error(error_msg: str):
-            # TODO: Display the error message; suggest a remedy
-            ...
+            self.connection_label.setText(f"Error: {error_msg}")
+            self.login_widget.set_auth_status(error_msg, is_error=True)
+
+        @self.model.auth_required.connect
+        def on_auth_required(required: bool, providers: list):
+            self.login_widget.setVisible(True)
+            self.login_widget.set_auth_providers(providers)
+            if required:
+                self.connection_label.setText(
+                    "Authentication required. Please log in."
+                )
+            else:
+                self.connection_label.setText(
+                    "Connected (authentication available)"
+                )
+
+        @self.model.auth_success.connect
+        def on_auth_success(identity_info: str):
+            self.login_widget.set_logged_in(identity_info)
+            self._device_code_timer.stop()
+
+        @self.model.auth_error.connect
+        def on_auth_error(error_msg: str):
+            self.login_widget.set_auth_status(error_msg, is_error=True)
+            self._device_code_timer.stop()
+
+        @self.model.auth_device_code.connect
+        def on_auth_device_code(
+            authorization_uri: str, user_code: str, expires_in: int
+        ):
+            self.login_widget.show_device_code(
+                authorization_uri, user_code, expires_in
+            )
+            import webbrowser
+
+            webbrowser.open(authorization_uri)
+            # Start polling for authorization
+            self._device_code_timer.start()
+
+        @self.model.logged_out.connect
+        def on_logged_out():
+            self.login_widget.set_logged_out()
+            self.connection_label.setText("Logged out")
+            self.search_widget.setVisible(False)
+            self.catalog_table_widget.setVisible(False)
 
         @self.model.table_changed.connect
         def on_table_changed(node_path_parts: tuple[str]):
@@ -383,6 +436,35 @@ class QTiledBrowser(QWidget):
         self.rows_per_page_selector.currentIndexChanged.connect(
             self.model.on_rows_per_page_changed
         )
+
+        # Login widget signals
+        self.login_widget.api_key_submitted.connect(
+            self.model.on_api_key_login
+        )
+        self.login_widget.password_submitted.connect(
+            self.model.on_password_login
+        )
+        self.login_widget.login_requested.connect(
+            self._on_login_requested
+        )
+        self.login_widget.logout_requested.connect(
+            self.model.on_logout
+        )
+
+    def _on_login_requested(self):
+        """Handle a generic login request from the login widget."""
+        method_text = self.login_widget.auth_method_selector.currentText()
+        if method_text == "Device Code":
+            self.model.on_device_code_login()
+        else:
+            # For "None" auth, just re-trigger connect
+            self.model.on_connect_clicked()
+
+    def _poll_device_code(self):
+        """Poll for device code authorization completion."""
+        done = self.model.poll_device_code()
+        if done:
+            self._device_code_timer.stop()
 
     def connect_self_signals(self):
         self.load_button.clicked.connect(self._on_load)

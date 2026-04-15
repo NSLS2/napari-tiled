@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from collections import defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from datetime import date, datetime
@@ -7,11 +8,14 @@ from math import ceil
 from urllib.parse import ParseResult
 from urllib.parse import urlparse as _urlparse
 
+import httpx
 from httpx import ConnectError
 from qtpy.QtCore import QObject, Signal
 from tiled.client import from_uri
 from tiled.client.array import ArrayClient
 from tiled.client.base import BaseClient
+from tiled.client.constructors import from_context
+from tiled.client.context import Context, handle_error, password_grant
 from tiled.queries import FullText, Key, Regex
 from tiled.structures.core import StructureFamily
 
@@ -62,6 +66,29 @@ class TiledSelectorSignals(QObject):
         str,  # Error message
         name="TiledSelector.url_validation_error",
     )
+    # Authentication signals
+    auth_required = Signal(
+        bool,  # whether authentication is required
+        list,  # list of auth providers
+        name="TiledSelector.auth_required",
+    )
+    auth_success = Signal(
+        str,  # identity info
+        name="TiledSelector.auth_success",
+    )
+    auth_error = Signal(
+        str,  # error message
+        name="TiledSelector.auth_error",
+    )
+    auth_device_code = Signal(
+        str,  # authorization_uri
+        str,  # user_code
+        int,  # expires_in
+        name="TiledSelector.auth_device_code",
+    )
+    logged_out = Signal(
+        name="TiledSelector.logged_out",
+    )
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -101,6 +128,15 @@ class TiledSelector:
         self.table_changed = self.signals.table_changed
         self.url_changed = self.signals.url_changed
         self.url_validation_error = self.signals.url_validation_error
+        self.auth_required = self.signals.auth_required
+        self.auth_success = self.signals.auth_success
+        self.auth_error = self.signals.auth_error
+        self.auth_device_code = self.signals.auth_device_code
+        self.logged_out = self.signals.logged_out
+
+        # Authentication state
+        self._context = None
+        self._node_path_parts_from_uri = []
 
         # A buffer to receive updates while the URL is being edited
         self._url_buffer = self.url
@@ -177,15 +213,297 @@ class TiledSelector:
         self.url = new_url
 
     def on_connect_clicked(self, checked: bool = False):
-        """Handle a button click to connect to the Tiled client."""
+        """Handle a button click to connect to the Tiled client.
+
+        This creates a Context to probe the server's auth requirements,
+        then either connects directly (no auth) or emits auth_required
+        so the UI can prompt for credentials.
+        """
         _logger.debug("TiledSelector.on_connect_clicked()...")
 
         if self.client:
-            # TODO: Clean-up previously connected client?
-            ...
+            # Clean up previous client
+            self._context = None
+            self._client = None
 
-        self.connect_client()
+        try:
+            context, node_path_parts = Context.from_any_uri(self.url)
+        except (ConnectError, Exception) as exception:
+            error_message = str(exception)
+            _logger.error(error_message)
+            self.client_connection_error.emit(error_message)
+            return
+
+        self._context = context
+        self._node_path_parts_from_uri = node_path_parts
+
+        # Check server auth requirements
+        server_info = context.server_info
+        auth_is_required = server_info.authentication.required
+        providers = server_info.authentication.providers
+
+        if not auth_is_required and not providers:
+            # No auth needed, connect directly
+            self._finalize_connection()
+            return
+
+        if providers:
+            # Check for cached tokens first
+            found_valid_tokens = context.use_cached_tokens()
+            if found_valid_tokens:
+                self._finalize_connection()
+                try:
+                    identity = context.whoami()
+                    identity_id = identity.get(
+                        "id", identity.get("uuid", "")
+                    )
+                    self.auth_success.emit(str(identity_id))
+                except Exception:
+                    self.auth_success.emit("")
+                return
+
+        # Emit auth_required so the UI can display login options
+        self.auth_required.emit(auth_is_required, list(providers))
+
+        if not auth_is_required:
+            # Auth optional - still connect without auth
+            self._finalize_connection()
+
+    def _finalize_connection(self):
+        """Create a Tiled client from the existing context and emit connected."""
+        _logger.debug("TiledSelector._finalize_connection()...")
+        try:
+            new_client = from_context(
+                self._context,
+                node_path_parts=self._node_path_parts_from_uri,
+                remember_me=True,
+            )
+        except Exception as exception:
+            error_message = str(exception)
+            _logger.error(error_message)
+            self.client_connection_error.emit(error_message)
+            return
+
+        self._client = new_client
+        self.client_connected.emit(
+            self._client.uri, str(self._client.context.api_uri)
+        )
         self.reset_client_view()
+
+    def on_api_key_login(self, api_key: str):
+        """Authenticate with an API key and connect."""
+        _logger.debug("TiledSelector.on_api_key_login()...")
+
+        try:
+            context, node_path_parts = Context.from_any_uri(
+                self.url, api_key=api_key
+            )
+            self._context = context
+            self._node_path_parts_from_uri = node_path_parts
+            self._finalize_connection()
+            self.auth_success.emit("(API key)")
+        except Exception as exception:
+            error_message = str(exception)
+            _logger.error(error_message)
+            self.auth_error.emit(error_message)
+
+    def on_password_login(self, username: str, password: str):
+        """Authenticate with username/password and connect."""
+        _logger.debug("TiledSelector.on_password_login()...")
+
+        if self._context is None:
+            self.auth_error.emit("Not connected to a server. Click Connect first.")
+            return
+
+        context = self._context
+        providers = context.server_info.authentication.providers
+
+        # Find the internal/password provider
+        spec = None
+        for p in providers:
+            if p.mode in ("internal", "password"):
+                spec = p
+                break
+
+        if spec is None:
+            self.auth_error.emit(
+                "Server does not support password authentication."
+            )
+            return
+
+        auth_endpoint = spec.links["auth_endpoint"]
+        provider = spec.provider
+
+        try:
+            tokens = password_grant(
+                context.http_client,
+                auth_endpoint,
+                provider,
+                username,
+                password,
+            )
+            context.configure_auth(tokens, remember_me=True)
+            self._finalize_connection()
+            identity_id = tokens.get("identity", {}).get("id", username)
+            self.auth_success.emit(str(identity_id))
+        except httpx.HTTPStatusError as err:
+            if err.response.status_code == httpx.codes.UNAUTHORIZED:
+                self.auth_error.emit(
+                    "Username or password not recognized."
+                )
+            else:
+                self.auth_error.emit(str(err))
+        except Exception as exception:
+            self.auth_error.emit(str(exception))
+
+    def on_device_code_login(self):
+        """Start device code authentication flow."""
+        _logger.debug("TiledSelector.on_device_code_login()...")
+
+        if self._context is None:
+            self.auth_error.emit("Not connected to a server. Click Connect first.")
+            return
+
+        context = self._context
+        providers = context.server_info.authentication.providers
+
+        # Find the external provider
+        spec = None
+        for p in providers:
+            if p.mode == "external":
+                spec = p
+                break
+
+        if spec is None:
+            self.auth_error.emit(
+                "Server does not support device code authentication."
+            )
+            return
+
+        auth_endpoint = spec.links["auth_endpoint"]
+        client_id = spec.links.get("client_id")
+        token_endpoint = spec.links.get("token_endpoint")
+        oauth2_spec = bool(client_id and token_endpoint)
+
+        try:
+            # Request device code from server
+            if oauth2_spec:
+                verification_response = context.http_client.post(
+                    auth_endpoint,
+                    data={
+                        "client_id": client_id,
+                        "scope": "openid offline_access",
+                    },
+                )
+            else:
+                verification_response = context.http_client.post(
+                    auth_endpoint
+                )
+            handle_error(verification_response)
+            verification = verification_response.json()
+
+            uri_key = (
+                "verification_uri_complete"
+                if oauth2_spec
+                else "authorization_uri"
+            )
+            authorization_uri = verification[uri_key]
+            user_code = verification.get("user_code", "")
+            expires_in = int(verification.get("expires_in", 600))
+
+            # Emit signal so UI can display the code
+            self.auth_device_code.emit(
+                authorization_uri, user_code, expires_in
+            )
+
+            # Store verification data for polling
+            self._device_code_verification = verification
+            self._device_code_client_id = client_id
+            self._device_code_token_endpoint = token_endpoint
+            self._device_code_oauth2_spec = oauth2_spec
+
+        except Exception as exception:
+            self.auth_error.emit(str(exception))
+
+    def poll_device_code(self):
+        """Poll the server to check if the device code has been authorized.
+
+        Returns True if authorized, False if still pending,
+        and emits auth_error on failure.
+        """
+        if not hasattr(self, "_device_code_verification"):
+            return False
+
+        context = self._context
+        verification = self._device_code_verification
+        client_id = self._device_code_client_id
+        token_endpoint = self._device_code_token_endpoint
+        oauth2_spec = self._device_code_oauth2_spec
+
+        try:
+            if oauth2_spec:
+                access_response = context.http_client.post(
+                    token_endpoint,
+                    data={
+                        "device_code": verification["device_code"],
+                        "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                        "client_id": client_id,
+                    },
+                )
+            else:
+                access_response = context.http_client.post(
+                    verification["verification_uri"],
+                    json={
+                        "device_code": verification["device_code"],
+                        "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
+                    },
+                    auth=None,
+                )
+
+            if access_response.status_code == httpx.codes.BAD_REQUEST:
+                error_data = access_response.json()
+                error_str = (
+                    error_data.get("error")
+                    if oauth2_spec
+                    else error_data.get("detail", {}).get("error")
+                )
+                if error_str == "authorization_pending":
+                    return False  # Still waiting
+                # Other error
+                self.auth_error.emit(f"Device code error: {error_str}")
+                return True  # Stop polling
+
+            handle_error(access_response)
+            tokens = access_response.json()
+            context.configure_auth(tokens, remember_me=True)
+
+            # Clean up verification data
+            del self._device_code_verification
+            del self._device_code_client_id
+            del self._device_code_token_endpoint
+            del self._device_code_oauth2_spec
+
+            self._finalize_connection()
+            self.auth_success.emit("(device code)")
+            return True  # Done
+
+        except Exception as exception:
+            self.auth_error.emit(str(exception))
+            return True  # Stop polling on error
+
+    def on_logout(self):
+        """Log out of the current session."""
+        _logger.debug("TiledSelector.on_logout()...")
+
+        if self._context is not None:
+            try:
+                self._context.logout()
+            except Exception as exception:
+                _logger.warning("Logout error: %s", exception)
+
+        self._client = None
+        self._context = None
+        self.logged_out.emit()
 
     def connect_client(self) -> None:
         """Connect the model's Tiled client to the Tiled server at URL.
