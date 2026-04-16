@@ -19,6 +19,8 @@ from tiled.client.context import Context, handle_error, password_grant
 from tiled.queries import FullText, Key, Regex
 from tiled.structures.core import StructureFamily
 
+from napari_tiled_browser.config import save_login_info
+
 _logger = logging.getLogger(__name__)
 _logger.setLevel(logging.DEBUG)
 
@@ -257,8 +259,10 @@ class TiledSelector:
                     identity_id = identity.get(
                         "id", identity.get("uuid", "")
                     )
+                    save_login_info(self.url, str(identity_id))
                     self.auth_success.emit(str(identity_id))
                 except Exception:
+                    save_login_info(self.url, "")
                     self.auth_success.emit("")
                 return
 
@@ -302,6 +306,7 @@ class TiledSelector:
             self._node_path_parts_from_uri = node_path_parts
             self._finalize_connection()
             self.auth_success.emit("(API key)")
+            save_login_info(self.url, "(API key)")
         except Exception as exception:
             error_message = str(exception)
             _logger.error(error_message)
@@ -345,6 +350,7 @@ class TiledSelector:
             context.configure_auth(tokens, remember_me=True)
             self._finalize_connection()
             identity_id = tokens.get("identity", {}).get("id", username)
+            save_login_info(self.url, str(identity_id))
             self.auth_success.emit(str(identity_id))
         except httpx.HTTPStatusError as err:
             if err.response.status_code == httpx.codes.UNAUTHORIZED:
@@ -484,6 +490,7 @@ class TiledSelector:
             del self._device_code_oauth2_spec
 
             self._finalize_connection()
+            save_login_info(self.url, "(device code)")
             self.auth_success.emit("(device code)")
             return True  # Done
 

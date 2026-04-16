@@ -35,6 +35,7 @@ from tiled.client.container import Container
 from tiled.profiles import load_profiles
 from tiled.structures.core import StructureFamily
 
+from napari_tiled_browser.config import get_saved_url, get_saved_username
 from napari_tiled_browser.models.tiled_selector import TiledSelector
 from napari_tiled_browser.models.tiled_subscriber import SubscriptionManager
 from napari_tiled_browser.models.tiled_worker import TiledWorker
@@ -88,6 +89,12 @@ class QTiledBrowser(QWidget):
         profiles = load_profiles()
         _, profile_details = profiles.get(profile, (None, {}))
         url = profile_details.get("uri", default_url)
+
+        # Fall back to saved config if no URL from profile/env
+        if not url:
+            url = get_saved_url()
+        self._saved_username = get_saved_username()
+
         _logger.debug("Will attempt to connect to Tiled at %s", url)
 
         self.model = TiledSelector(url=url)
@@ -480,6 +487,9 @@ class QTiledBrowser(QWidget):
     def initialize_values(self):
         self.reset_url_entry()
         self.reset_rows_per_page()
+        # Pre-fill saved username in login widget
+        if self._saved_username:
+            self.login_widget.username_entry.setText(self._saved_username)
 
     def _on_catalog_live_button_clicked(self):
         # TODO: add check for CatalogOfBlueskyRuns and enable/disable live button as needed
