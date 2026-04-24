@@ -259,6 +259,7 @@ class QTiledBrowser(QWidget):
             client=self.model.client,
             search_results=self.model.search_results,
             node_path_parts=self.model.node_path_parts,
+            display_search_results=self.model.display_search_results,
         )
         runnable.signals.results.connect(self.populate_table)
         self.thread_pool.start(runnable)
