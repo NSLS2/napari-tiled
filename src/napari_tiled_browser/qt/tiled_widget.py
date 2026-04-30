@@ -391,9 +391,9 @@ class QTiledBrowser(QWidget):
             self._on_catalog_live_button_clicked
         )
 
-        # self.catalog_table.itemDoubleClicked.connect(
-        #     self._on_item_double_click
-        # )
+        self.catalog_table.itemDoubleClicked.connect(
+            self._on_item_double_click
+        )
         self.catalog_table.itemSelectionChanged.connect(self._on_item_selected)
 
     def initialize_values(self):
@@ -424,11 +424,11 @@ class QTiledBrowser(QWidget):
     def _on_breadcrumb_clicked(self, node_index):
         self.model.jump_to_node(node_index)
 
-    # def _on_item_double_click(self, item):
-    #     if item is self.catalog_breadcrumbs:
-    #         self.exit_node()
-    #         return
-    #     self.open_node(item.text())
+    def _on_item_double_click(self, item):
+        if item is self.catalog_breadcrumbs:
+            self.model.exit_node()
+            return
+        self.model.open_node(item.text())
 
     def _on_item_selected(self):
         selected = self.catalog_table.selectedItems()
