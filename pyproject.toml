@@ -34,8 +34,9 @@ dependencies = [
     "napari",
     "qtpy",
     "scikit-image",
-    "tiled[array,client]>=0.2.0",
+    "tiled[array,client]>=0.2.3",
     "bluesky-tiled-plugins>=2.0.0rc3",
+    "matplotlib",
 ]
 
 [project.optional-dependencies]

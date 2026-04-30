@@ -38,6 +38,7 @@ from tiled.structures.core import StructureFamily
 from napari_tiled_browser.models.tiled_selector import TiledSelector
 from napari_tiled_browser.models.tiled_subscriber import SubscriptionManager
 from napari_tiled_browser.models.tiled_worker import TiledWorker
+from napari_tiled_browser.qt.matplotlib_widget import MatplotlibWidget
 from napari_tiled_browser.qt.tiled_search import QTiledSearchWidget
 
 _logger = logging.getLogger(__name__)
@@ -199,6 +200,8 @@ class QTiledBrowser(QWidget):
         layout.addWidget(self.splitter)
         self.setLayout(layout)
 
+        self.mpl_widget = MatplotlibWidget()
+
     def reset_url_entry(self) -> None:
         """Reset the state of the url_entry widget."""
         _logger.debug("QTiledBrowser.reset_url_entry()...")
@@ -357,16 +360,42 @@ class QTiledBrowser(QWidget):
 
         @self.model.plottable_image_data_received.connect
         def on_plottable_image_data_received(node, child_node_path):
-            layer = self.viewer.add_image(node, name=child_node_path)
-            layer.reset_contrast_limits()
+            if len(node.shape) > 1:
+                layer = self.viewer.add_image(node, name=child_node_path)
+                layer.reset_contrast_limits()
+            elif len(node.shape) == 1:
+                ax = self.mpl_widget.figure.add_subplot(111)
+                plot1 = ax.plot(node)
+                print(plot1)
+                self.viewer.window.add_dock_widget(
+                    self.mpl_widget, area="right"
+                )
+            else:
+                _logger.info(
+                    "Shape of data: %d; not plotting", len(node.shape)
+                )
 
         @self.sub_manager.plottable_array_data_received.connect
         def on_plottable_array_data_received(node, child_node_path):
-            try:
-                self.viewer.layers[child_node_path].data = node
-            except KeyError:
-                layer = self.viewer.add_image(node, name=child_node_path)
-                layer.reset_contrast_limits()
+            # TODO
+            print(f"######      {node.shape}")
+            if len(node.shape) > 1:
+                try:
+                    self.viewer.layers[child_node_path].data = node
+                except KeyError:
+                    layer = self.viewer.add_image(node, name=child_node_path)
+                    layer.reset_contrast_limits()
+            elif len(node.shape) == 1:
+                ax = self.mpl_widget.figure.add_subplot(111)
+                plot1 = ax.plot(node)
+                print(plot1)
+                self.viewer.window.add_dock_widget(
+                    self.mpl_widget, area="right"
+                )
+            else:
+                _logger.info(
+                    "Shape of data: %d; not plotting", len(node.shape)
+                )
 
     def connect_model_slots(self):
         """Connect model slots to dialog signals."""
