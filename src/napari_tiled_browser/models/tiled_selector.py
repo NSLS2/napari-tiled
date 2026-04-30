@@ -149,7 +149,7 @@ class TiledSelector:
     @property
     def node_len(self):
         """Convenience function for returning total length of node/search result."""
-        if self.search_results and self.display_search_results:
+        if self.search_results is not None and self.display_search_results:
             return len(self.search_results)
         else:
             return len(self.get_current_node())

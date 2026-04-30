@@ -31,7 +31,7 @@ class TiledWorker(QRunnable):
         node_offset = self.rows_per_page * self.current_page
         selection = slice(node_offset, node_offset + self.rows_per_page)
 
-        if self.search_results and self.display_search_results:
+        if self.search_results is not None and self.display_search_results:
             catalog_or_search_results = self.search_results
             results = catalog_or_search_results.items()[selection]
         else:
