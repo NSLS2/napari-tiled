@@ -46,10 +46,15 @@ class TiledSelectorSignals(QObject):
         str,  # Error message
         name="TiledSelector.client_connection_error",
     )
-    plottable_image_data_received = Signal(
+    plottable_array_image_data_received = Signal(
         ArrayClient,  # node
         str,  # child_node_path
-        name="TiledSelector.plottable_image_data_received",
+        name="TiledSelector.plottable_array_image_data_received",
+    )
+    plottable_array_line_data_received = Signal(
+        ArrayClient,  # node
+        str,  # child_node_path
+        name="TiledSelector.plottable_array_line_data_received",
     )
     table_changed = Signal(
         tuple,  # New node path parts, tuple of strings
@@ -95,8 +100,11 @@ class TiledSelector:
         self.signals = self.Signals(parent)
         self.client_connected = self.signals.client_connected
         self.client_connection_error = self.signals.client_connection_error
-        self.plottable_image_data_received = (
-            self.signals.plottable_image_data_received
+        self.plottable_array_image_data_received = (
+            self.signals.plottable_array_image_data_received
+        )
+        self.plottable_array_line_data_received = (
+            self.signals.plottable_array_line_data_received
         )
         self.table_changed = self.signals.table_changed
         self.url_changed = self.signals.url_changed
@@ -381,7 +389,14 @@ class TiledSelector:
 
         if family == StructureFamily.array:
             _logger.info("  Found array, plotting")
-            self.plottable_image_data_received.emit(node, child_node_path)
+            if len(node.shape) < 2:
+                self.plottable_array_line_data_received.emit(
+                    node, child_node_path
+                )
+            else:
+                self.plottable_array_image_data_received.emit(
+                    node, child_node_path
+                )
         elif family == StructureFamily.container:
             _logger.debug("Entering container: %s", child_node_path)
             self.enter_node(child_node_path)

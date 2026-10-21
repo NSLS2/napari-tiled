@@ -114,6 +114,9 @@ class SubscriptionManager(QObject):
             # Launch the subscription.
             # Ask the server to replay from the very first update, if we already
             # missed some.
+        elif child.structure_family == "table":
+            print("TODO: Handle table updates")
+            ts = None
         else:
             # Ignore other structures (e.g. tables) for now.
             ts = None

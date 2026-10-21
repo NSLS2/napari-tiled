@@ -12,7 +12,10 @@ import logging
 import os
 from datetime import date, datetime
 
+import napari_plot
+import numpy as np
 from napari.resources._icons import ICONS
+from napari_plot._qt.qt_viewer import QtViewer as QtViewer1D
 from qtpy.QtCore import Qt, QThreadPool, Signal
 from qtpy.QtGui import QIcon, QPixmap
 from qtpy.QtWidgets import (
@@ -90,6 +93,9 @@ class QTiledBrowser(QWidget):
         _logger.debug("Will attempt to connect to Tiled at %s", url)
 
         self.model = TiledSelector(url=url)
+
+        self.model_1d = napari_plot.ViewerModel()
+        self.viewer_1d = QtViewer1D(self.model_1d)
 
         self.thread_pool = QThreadPool.globalInstance()
 
@@ -355,13 +361,24 @@ class QTiledBrowser(QWidget):
 
         self.model.url_changed.connect(self.reset_url_entry)
 
-        @self.model.plottable_image_data_received.connect
-        def on_plottable_image_data_received(node, child_node_path):
+        @self.model.plottable_array_image_data_received.connect
+        def on_plottable_array_image_data_received(node, child_node_path):
             layer = self.viewer.add_image(node, name=child_node_path)
             layer.reset_contrast_limits()
 
+        @self.model.plottable_array_line_data_received.connect
+        def on_plottable_array_line_data_received(node, child_node_path):
+            self.viewer.window.add_dock_widget(self.viewer_1d)
+            self.model_1d.add_line(
+                np.c_[np.arange(node.shape[0]), node], name=child_node_path
+            )
+            self.model_1d.axis.y_label = child_node_path
+            self.model_1d.reset_view()
+
         @self.sub_manager.plottable_array_data_received.connect
         def on_plottable_array_data_received(node, child_node_path):
+            # TODO: find a more consistent name for sub manager and model
+            # receiving array data
             try:
                 self.viewer.layers[child_node_path].data = node
             except KeyError:
