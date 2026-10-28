@@ -1,0 +1,5 @@
+# napari-tiled configuration
+# This file stores login settings and is updated automatically on successful authentication.
+
+url: "https://tiled.nsls2.bnl.gov"
+username: "xyang4"
