@@ -17,13 +17,12 @@ classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 # napari can be included in dependencies if napari imports are required.
 # However, you should not include napari[all], napari[qt],
 # or any other Qt bindings directly (e.g. PyQt5, PySide2).
@@ -36,6 +35,9 @@ dependencies = [
     "scikit-image",
     "tiled[array,client]>=0.2.0",
     "bluesky-tiled-plugins>=2.0.0rc3",
+    "pillow>=13.0.0",
+    "filelock>=4.2.1",
+    "tornado>=6.6",
 ]
 
 [project.optional-dependencies]
@@ -82,7 +84,7 @@ fallback_version = "0.0.1+nogit"
 
 [tool.black]
 line-length = 79
-target-version = ['py310', 'py311', 'py312', 'py313']
+target-version = ['py311', 'py312', 'py313']
 
 [tool.ruff]
 line-length = 79
@@ -126,5 +128,5 @@ exclude = [
     "*_vendor*",
 ]
 
-target-version = "py310"
+target-version = "py311"
 fix = true
