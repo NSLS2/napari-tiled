@@ -23,7 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 # napari can be included in dependencies if napari imports are required.
 # However, you should not include napari[all], napari[qt],
 # or any other Qt bindings directly (e.g. PyQt5, PySide2).
@@ -36,6 +36,9 @@ dependencies = [
     "scikit-image",
     "tiled[array,client]>=0.2.0",
     "bluesky-tiled-plugins>=2.0.0rc3",
+    "pillow>=13.0.0",
+    "filelock>=4.2.1",
+    "tornado>=6.6",
 ]
 
 [project.optional-dependencies]
