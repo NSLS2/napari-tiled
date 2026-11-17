@@ -12,7 +12,7 @@ from qtpy.QtCore import QObject, Signal
 from tiled.client import from_uri
 from tiled.client.array import ArrayClient
 from tiled.client.base import BaseClient
-from tiled.queries import FullText, Key, Regex
+from tiled.queries import FullText, Key  # , Regex
 from tiled.structures.core import StructureFamily
 
 _logger = logging.getLogger(__name__)
@@ -400,8 +400,8 @@ class TiledSelector:
             results = _client.search(Key(key) == value)
         elif search_type == "full_text":
             results = _client.search(FullText(value))
-        elif search_type == "regex":
-            results = _client.search(Regex(key, pattern=value))
+        # elif search_type == "regex":
+        #     results = _client.search(Regex(key, pattern=value))
         else:
             _logger.info("Unknown search type %s. Returning...", search_type)
             results = None

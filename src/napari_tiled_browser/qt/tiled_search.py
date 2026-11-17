@@ -35,7 +35,7 @@ class QTiledSearchWidget(QWidget):
         self.value_entry = QLineEdit()
         self.value_entry.setClearButtonEnabled(True)
         self.full_text_checkbox = QCheckBox("Full text search")
-        self.regex_checkbox = QCheckBox("Use RegEx pattern")
+        # self.regex_checkbox = QCheckBox("Use RegEx pattern")
         self.full_text_hint = QLabel("Whole words only")
         self.full_text_hint.setVisible(False)
 
@@ -47,7 +47,7 @@ class QTiledSearchWidget(QWidget):
         layout.addWidget(self.value_entry, 0, 3)
         # widget, row, column, row span, column span
         layout.addWidget(self.full_text_checkbox, 1, 0, 1, 2)
-        layout.addWidget(self.regex_checkbox, 1, 2, 1, 2)
+        # layout.addWidget(self.regex_checkbox, 1, 2, 1, 2)
         layout.addWidget(self.full_text_hint, 1, 2, 1, 2)
 
         self.setLayout(layout)
@@ -55,7 +55,7 @@ class QTiledSearchWidget(QWidget):
         self.full_text_checkbox.clicked.connect(
             self.on_full_text_checkbox_checked
         )
-        self.regex_checkbox.clicked.connect(self.on_regex_checkbox_checked)
+        # self.regex_checkbox.clicked.connect(self.on_regex_checkbox_checked)
 
         self.debounce = QTimer()
         self.debounce.setInterval(1000)
@@ -72,17 +72,17 @@ class QTiledSearchWidget(QWidget):
         _logger.debug("Value: %s", value)
         _logger.debug("Searching...")
         full_text_enabled = self.full_text_checkbox.isChecked()
-        regex_enabled = self.regex_checkbox.isChecked()
+        # regex_enabled = self.regex_checkbox.isChecked()
         # FullText search - full text check and non empty value
         if value != "" and full_text_enabled:
             search_type = "full_text"
             key = None
         # RegEx search - regex check and non empty key and value
-        elif (key != "" and value != "") and regex_enabled:
-            search_type = "regex"
+        # elif (key != "" and value != "") and regex_enabled:
+        #     search_type = "regex"
         # key value search - no checks and non empty key and value
         elif (key != "" and value != "") and not (
-            full_text_enabled or regex_enabled
+            full_text_enabled  # or regex_enabled
         ):
             search_type = "key_value"
         # every other combo should not search
@@ -95,14 +95,14 @@ class QTiledSearchWidget(QWidget):
         self._search()
 
     def on_full_text_checkbox_checked(self):
-        self.regex_checkbox.setVisible(not self.regex_checkbox.isVisible())
+        # self.regex_checkbox.setVisible(not self.regex_checkbox.isVisible())
         self.full_text_hint.setVisible(not self.full_text_hint.isVisible())
         self.key_label.setEnabled(not self.key_label.isEnabled())
         self.key_entry.setEnabled(not self.key_entry.isEnabled())
         self._search()
 
-    def on_regex_checkbox_checked(self):
-        self.full_text_checkbox.setEnabled(
-            not self.full_text_checkbox.isEnabled()
-        )
-        self._search()
+    # def on_regex_checkbox_checked(self):
+    #     self.full_text_checkbox.setEnabled(
+    #         not self.full_text_checkbox.isEnabled()
+    #     )
+    #     self._search()
