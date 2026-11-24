@@ -37,7 +37,7 @@ dependencies = [
     "bluesky-tiled-plugins>=2.0.0rc3",
     "pillow>=13.0.0",
     "filelock>=4.2.1",
-    "tornado>=6.6",
+    "tornado>=6.6.1",
 ]
 
 [project.optional-dependencies]
